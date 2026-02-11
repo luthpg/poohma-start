@@ -1,118 +1,115 @@
-import { createFileRoute } from '@tanstack/react-router'
-import {
-  Zap,
-  Server,
-  Route as RouteIcon,
-  Shield,
-  Waves,
-  Sparkles,
-} from 'lucide-react'
+import { createFileRoute, Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute("/")({
+  component: RouteComponent,
+});
 
-function App() {
-  const features = [
-    {
-      icon: <Zap className="w-12 h-12 text-cyan-400" />,
-      title: 'Powerful Server Functions',
-      description:
-        'Write server-side code that seamlessly integrates with your client components. Type-safe, secure, and simple.',
-    },
-    {
-      icon: <Server className="w-12 h-12 text-cyan-400" />,
-      title: 'Flexible Server Side Rendering',
-      description:
-        'Full-document SSR, streaming, and progressive enhancement out of the box. Control exactly what renders where.',
-    },
-    {
-      icon: <RouteIcon className="w-12 h-12 text-cyan-400" />,
-      title: 'API Routes',
-      description:
-        'Build type-safe API endpoints alongside your application. No separate backend needed.',
-    },
-    {
-      icon: <Shield className="w-12 h-12 text-cyan-400" />,
-      title: 'Strongly Typed Everything',
-      description:
-        'End-to-end type safety from server to client. Catch errors before they reach production.',
-    },
-    {
-      icon: <Waves className="w-12 h-12 text-cyan-400" />,
-      title: 'Full Streaming Support',
-      description:
-        'Stream data from server to client progressively. Perfect for AI applications and real-time updates.',
-    },
-    {
-      icon: <Sparkles className="w-12 h-12 text-cyan-400" />,
-      title: 'Next Generation Ready',
-      description:
-        'Built from the ground up for modern web applications. Deploy anywhere JavaScript runs.',
-    },
-  ]
-
+function RouteComponent() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-      <section className="relative py-20 px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10"></div>
-        <div className="relative max-w-5xl mx-auto">
-          <div className="flex items-center justify-center gap-6 mb-6">
-            <img
-              src="/tanstack-circle-logo.png"
-              alt="TanStack Logo"
-              className="w-24 h-24 md:w-32 md:h-32"
+    <div className="min-h-screen bg-white font-sans text-gray-900">
+      {/* ナビゲーション */}
+      <nav className="flex items-center justify-between px-6 py-4 md:px-12">
+        <div className="text-2xl font-black text-orange-500">PoohMa</div>
+        <Link
+          to="/login"
+          className="rounded-full bg-gray-100 px-6 py-2 text-sm font-bold transition hover:bg-gray-200"
+        >
+          ログイン
+        </Link>
+      </nav>
+
+      {/* ヒーローセクション */}
+      <header className="px-6 py-16 text-center md:py-24">
+        <h1 className="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight md:text-6xl">
+          家族のパスワード、
+          <br />
+          <span className="text-orange-500">「ヒント」</span>で安全に共有。
+        </h1>
+        <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600">
+          パスワードそのものを教え合うのはもう終わり。
+          PoohMaなら、ヒントだけで家族が「あぁ、あれね！」と思い出せる。
+        </p>
+        <div className="mt-10 flex justify-center gap-4">
+          <Link
+            to="/login"
+            className="rounded-full bg-orange-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600"
+          >
+            無料で始める
+          </Link>
+        </div>
+      </header>
+
+      {/* 特徴セクション */}
+      <section className="bg-orange-50 px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-12 text-center text-3xl font-bold">
+            PoohMaが選ばれる理由
+          </h2>
+          <div className="grid gap-8 md:grid-cols-3">
+            <FeatureCard
+              icon="🔒"
+              title="パスワードを保存しない"
+              description="保存するのは「ヒント」だけ。万が一の流出時も、家族以外には正解が分かりません。"
             />
-            <h1 className="text-6xl md:text-7xl font-black text-white [letter-spacing:-0.08em]">
-              <span className="text-gray-300">TANSTACK</span>{' '}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                START
-              </span>
-            </h1>
-          </div>
-          <p className="text-2xl md:text-3xl text-gray-300 mb-4 font-light">
-            The framework for next generation AI applications
-          </p>
-          <p className="text-lg text-gray-400 max-w-3xl mx-auto mb-8">
-            Full-stack framework powered by TanStack Router for React and Solid.
-            Build modern applications with server functions, streaming, and type
-            safety.
-          </p>
-          <div className="flex flex-col items-center gap-4">
-            <a
-              href="https://tanstack.com/start"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-8 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-cyan-500/50"
-            >
-              Documentation
-            </a>
-            <p className="text-gray-400 text-sm mt-2">
-              Begin your TanStack Start journey by editing{' '}
-              <code className="px-2 py-1 bg-slate-700 rounded text-cyan-400">
-                /src/routes/index.tsx
-              </code>
-            </p>
+            <FeatureCard
+              icon="👨‍👩‍👧‍👦"
+              title="家族専用の共有空間"
+              description="招待した家族だけで情報を管理。NetflixやWi-Fiの情報を一箇所にまとめます。"
+            />
+            <FeatureCard
+              icon="✨"
+              title="URLから情報を自動取得"
+              description="サービスのURLを貼るだけで、ロゴやタイトルを自動設定。管理が楽しくなります。"
+            />
           </div>
         </div>
       </section>
 
-      <section className="py-16 px-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
-            >
-              <div className="mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-gray-400 leading-relaxed">
-                {feature.description}
-              </p>
-            </div>
-          ))}
+      {/* 使い方セクション */}
+      <section className="px-6 py-20 text-center">
+        <h2 className="mb-16 text-3xl font-bold">使いかたはシンプル</h2>
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-12 md:flex-row">
+          <Step num="1" text="サービスを登録して「ヒント」を入力" />
+          <div className="hidden text-gray-300 md:block">→</div>
+          <Step num="2" text="家族を招待して情報を共有" />
+          <div className="hidden text-gray-300 md:block">→</div>
+          <Step num="3" text="ヒントを見てパスワードを思い出す" />
         </div>
       </section>
+
+      {/* フッター */}
+      <footer className="border-t border-gray-100 py-12 text-center text-sm text-gray-400">
+        &copy; 2026 PoohMa - Family Password Hint Manager
+      </footer>
     </div>
-  )
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white p-8 shadow-sm transition hover:shadow-md">
+      <div className="mb-4 text-4xl">{icon}</div>
+      <h3 className="mb-2 text-xl font-bold">{title}</h3>
+      <p className="text-sm leading-relaxed text-gray-600">{description}</p>
+    </div>
+  );
+}
+
+function Step({ num, text }: { num: string; text: string }) {
+  return (
+    <div className="flex flex-1 flex-col items-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 font-bold text-white">
+        {num}
+      </div>
+      <p className="font-medium">{text}</p>
+    </div>
+  );
 }
