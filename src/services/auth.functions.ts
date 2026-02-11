@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, setCookie } from "@tanstack/react-start/server";
 import { db } from "./db.server";
-import { adminAuth, getSessionCookie } from "./firebase-admin.server";
+import { adminAuth, getSessionCookie, verifySessionCookie } from "./firebase-admin.server";
 
 /**
  * 認証ユーザーの取得
@@ -48,11 +48,11 @@ export const syncUser = createServerFn({ method: "GET" })
  */
 export const getAuthUser = createServerFn({ method: "GET" }).handler(
   async () => {
-    const idToken = getCookie("session");
-    if (!idToken) return null;
+    const sessionCookie = getCookie("session");
+    if (!sessionCookie) return null;
 
     try {
-      const decodedToken = await adminAuth().verifyIdToken(idToken);
+      const decodedToken = await verifySessionCookie(sessionCookie);
       const { uid } = decodedToken;
 
       // ユーザー検索

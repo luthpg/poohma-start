@@ -32,6 +32,9 @@ function LoginPage() {
       // 2. Server Function を呼んで DB同期 & Cookie設定
       await syncUser({ data: { idToken } });
 
+      // Routerのキャッシュを無効化し、__root.tsx の beforeLoad を再実行させる
+      await router.invalidate();
+
       // 3. ダッシュボードへリダイレクト
       await router.navigate({ to: "/dashboard" });
     } catch (err) {

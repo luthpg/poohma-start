@@ -30,3 +30,11 @@ export const adminAuth = () => initializeFirebaseAdmin().auth();
 export const getSessionCookie = async (idToken: string, expiresIn: number) => {
   return adminAuth().createSessionCookie(idToken, { expiresIn });
 };
+
+export const verifySessionCookie = async (sessionCookie: string) => {
+  return adminAuth().verifySessionCookie(sessionCookie);
+};
+
+export const revokeSessionCookie = async (sessionCookie: string) => {
+  return adminAuth().revokeRefreshTokens(sessionCookie);
+};
