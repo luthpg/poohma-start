@@ -1,0 +1,263 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { createRecord, getOgpInfoFn } from "@/services/records.functions";
+
+export const Route = createFileRoute("/(app)/records/new")({
+  component: NewRecordComponent,
+});
+
+function NewRecordComponent() {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // フォーム状態
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [memo, setMemo] = useState("");
+  const [visibility, setVisibility] = useState<"PRIVATE" | "SHARED">("PRIVATE");
+
+  // アカウント情報（複数登録可能）
+  const [credentials, setCredentials] = useState([
+    { label: "", loginId: "", passwordHint: "" },
+  ]);
+
+  // タグ（カンマ区切り入力用の一時ステート）
+  const [tagsInput, setTagsInput] = useState("");
+
+  // OGPダミー情報（本来はCloud Functionsから取得）
+  const [ogpImage, setOgpImage] = useState("");
+  const [ogpDescription, setOgpDescription] = useState("");
+
+  const handleUrlBlur = async () => {
+    if (!url) return;
+    try {
+      const ogp = await getOgpInfoFn({ data: { url } });
+      if (ogp.title && !title) setTitle(ogp.title);
+      if (ogp.image) setOgpImage(ogp.image);
+      if (ogp.description) setOgpDescription(ogp.description);
+    } catch (e) {
+      console.error("Failed to fetch OGP info", e);
+    }
+  };
+
+  const handleAddCredential = () => {
+    setCredentials([
+      ...credentials,
+      { label: "", loginId: "", passwordHint: "" },
+    ]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // カンマ区切りの文字列を配列に変換
+      const tags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const result = await createRecord({
+        data: {
+          title,
+          url,
+          ogpImage,
+          ogpDescription,
+          memo,
+          visibility,
+          credentials,
+          tags,
+        },
+      });
+
+      // 作成成功後、ダッシュボードへ遷移
+      await navigate({ to: "/dashboard" });
+    } catch (error) {
+      console.error("保存エラー:", error);
+      alert("保存に失敗しました。");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl p-6">
+      <h1 className="mb-8 text-[24px] font-semibold tracking-geist-h2 text-foreground">
+        サービスを登録
+      </h1>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* URL・OGPセクション */}
+        <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[14px] font-medium text-foreground">
+                URL
+              </label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onBlur={handleUrlBlur}
+                placeholder="https://example.com"
+                className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              />
+              <p className="mt-1.5 text-[12px] text-muted-foreground">
+                入力後にフォーカスを外すと情報を自動取得します
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[14px] font-medium text-foreground">
+                サービス名 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* アカウント情報（ID/ヒント）セクション */}
+        <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+          <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+            <h2 className="text-[18px] font-semibold text-foreground tracking-geist-ui">
+              アカウント情報
+            </h2>
+            <button
+              type="button"
+              onClick={handleAddCredential}
+              className="text-[14px] font-medium text-orange-500 hover:text-orange-600 transition"
+            >
+              + 追加する
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {credentials.map((cred, index) => (
+              <div
+                key={index}
+                className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
+              >
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                      ラベル (例: パパ用)
+                    </label>
+                    <input
+                      type="text"
+                      value={cred.label}
+                      onChange={(e) => {
+                        const newCreds = [...credentials];
+                        newCreds[index].label = e.target.value;
+                        setCredentials(newCreds);
+                      }}
+                      className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                      ログインID
+                    </label>
+                    <input
+                      type="text"
+                      value={cred.loginId}
+                      onChange={(e) => {
+                        const newCreds = [...credentials];
+                        newCreds[index].loginId = e.target.value;
+                        setCredentials(newCreds);
+                      }}
+                      className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                      パスワードのヒント
+                    </label>
+                    <input
+                      type="text"
+                      value={cred.passwordHint}
+                      onChange={(e) => {
+                        const newCreds = [...credentials];
+                        newCreds[index].passwordHint = e.target.value;
+                        setCredentials(newCreds);
+                      }}
+                      placeholder="例: 愛犬の名前+結婚記念日"
+                      className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* その他設定（公開設定・タグ・メモ） */}
+        <section className="rounded-lg bg-white p-6 shadow-card transition-shadow space-y-6">
+          <div>
+            <label className="block text-[14px] font-medium text-foreground mb-1">
+              公開設定
+            </label>
+            <select
+              value={visibility}
+              onChange={(e) =>
+                setVisibility(e.target.value as "PRIVATE" | "SHARED")
+              }
+              className="w-full rounded-md bg-white p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+            >
+              <option value="PRIVATE">自分のみ (Private)</option>
+              <option value="SHARED">家族と共有 (Shared)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[14px] font-medium text-foreground mb-1">
+              タグ (カンマ区切り)
+            </label>
+            <input
+              type="text"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="動画, サブスク, 仕事"
+              className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[14px] font-medium text-foreground mb-1">
+              メモ
+            </label>
+            <textarea
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              rows={3}
+              className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+            />
+          </div>
+        </section>
+
+        <div className="flex justify-end gap-4 border-t border-border pt-6">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/dashboard" })}
+            className="rounded-md bg-white px-6 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="rounded-md bg-orange-500 px-6 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 disabled:opacity-50 transition"
+          >
+            {isLoading ? "保存中..." : "登録する"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

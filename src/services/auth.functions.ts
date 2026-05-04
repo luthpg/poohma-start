@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, setCookie } from "@tanstack/react-start/server";
 import { db } from "./db.server";
-import { adminAuth, getSessionCookie, verifySessionCookie } from "./firebase-admin.server";
+import {
+  adminAuth,
+  getSessionCookie,
+  verifySessionCookie,
+} from "./firebase-admin.server";
 
 /**
  * 認証ユーザーの取得

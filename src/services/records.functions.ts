@@ -10,13 +10,35 @@ import { db } from "./db.server";
  * 条件: 自分が作成したもの OR (共有設定 AND 同じ家族)
  */
 export const getRecords = createServerFn({ method: "GET" })
-  .inputValidator((data?: { tag?: string }) => data)
+  .inputValidator((data?: { tag?: string; q?: string }) => data)
   .handler(async ({ data }) => {
     const user = await getAuthUser();
     if (!user) throw new Error("Unauthorized");
-    const { tag } = data || {};
+    const { tag, q } = data || {};
 
     // 検索条件の構築
+    const searchFilter = q
+      ? {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { memo: { contains: q, mode: "insensitive" } },
+            {
+              credentials: {
+                some: { label: { contains: q, mode: "insensitive" } },
+              },
+            },
+          ],
+        }
+      : {};
+
+    const tagFilter = tag
+      ? {
+          tags: {
+            some: { tagName: tag },
+          },
+        }
+      : {};
+
     const whereCondition = {
       AND: [
         {
@@ -28,14 +50,8 @@ export const getRecords = createServerFn({ method: "GET" })
             },
           ],
         },
-        // タグフィルタがある場合
-        tag
-          ? {
-              tags: {
-                some: { tagName: tag },
-              },
-            }
-          : {},
+        searchFilter,
+        tagFilter,
       ],
     };
 
@@ -154,4 +170,97 @@ export const deleteRecord = createServerFn({ method: "POST" })
     return await db.serviceRecord.delete({
       where: { id },
     });
+  });
+
+/**
+ * レコード更新
+ */
+export const updateRecord = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { id: string; data: z.infer<typeof RecordInputSchema> }) => data,
+  )
+  .handler(async ({ data: { id, data: inputData } }) => {
+    const user = await getAuthUser();
+    if (!user) throw new Error("Unauthorized");
+
+    const record = await db.serviceRecord.findUnique({ where: { id } });
+    if (!record) throw new Error("Not found");
+
+    const isOwner = record.userId === user.id;
+    const isFamilyShared =
+      record.visibility === Visibility.SHARED &&
+      record.familyId === user.familyId;
+    if (!isOwner && !isFamilyShared) {
+      throw new Error("Forbidden: Cannot update this record");
+    }
+
+    return await db.$transaction(async (tx) => {
+      // 既存の関連データを削除
+      await tx.accountCredential.deleteMany({ where: { recordId: id } });
+      await tx.recordTag.deleteMany({ where: { recordId: id } });
+
+      // レコード本体の更新と新しい関連データの作成
+      return await tx.serviceRecord.update({
+        where: { id },
+        data: {
+          title: inputData.title,
+          url: inputData.url,
+          ogpImage: inputData.ogpImage,
+          ogpDescription: inputData.ogpDescription,
+          memo: inputData.memo,
+          visibility: inputData.visibility,
+          credentials: {
+            create: inputData.credentials.map((cred) => ({
+              label: cred.label,
+              loginId: cred.loginId,
+              passwordHint: cred.passwordHint,
+            })),
+          },
+          tags: {
+            create: inputData.tags.map((tag) => ({
+              tagName: tag,
+            })),
+          },
+        },
+      });
+    });
+  });
+
+/**
+ * OGP情報取得
+ * 指定されたURLからHTMLを取得し、タイトルやOGP画像を抽出します
+ */
+export const getOgpInfoFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { url: string }) => data)
+  .handler(async ({ data: { url } }) => {
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "PoohMa-Bot/1.0" },
+      });
+      const html = await response.text();
+
+      const titleMatch =
+        html.match(
+          /<meta\s+(?:property|name)=["']og:title["']\s+content=["']([^"']+)["']/i,
+        ) || html.match(/<title>([^<]+)<\/title>/i);
+      const imageMatch = html.match(
+        /<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i,
+      );
+      const descriptionMatch =
+        html.match(
+          /<meta\s+(?:property|name)=["']og:description["']\s+content=["']([^"']+)["']/i,
+        ) ||
+        html.match(
+          /<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i,
+        );
+
+      return {
+        title: titleMatch ? titleMatch[1] : "",
+        image: imageMatch ? imageMatch[1] : "",
+        description: descriptionMatch ? descriptionMatch[1] : "",
+      };
+    } catch (error) {
+      console.error("OGP fetch failed:", error);
+      return { title: "", image: "", description: "" };
+    }
   });

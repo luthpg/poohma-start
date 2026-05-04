@@ -1,0 +1,441 @@
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
+import { useState } from "react";
+import {
+  deleteRecord,
+  getOgpInfoFn,
+  getRecordDetail,
+  updateRecord,
+} from "@/services/records.functions";
+
+export const Route = createFileRoute("/(app)/records/$id")({
+  loader: async ({ params }) => {
+    // サーバー関数を呼び出してレコード詳細を取得
+    const record = await getRecordDetail({ data: { id: params.id } });
+    return { record };
+  },
+  component: RecordDetailComponent,
+});
+
+function RecordDetailComponent() {
+  const { record } = Route.useLoaderData();
+  const navigate = useNavigate();
+  const router = useRouter();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState(record.title);
+  const [url, setUrl] = useState(record.url || "");
+  const [ogpImage, setOgpImage] = useState(record.ogpImage || "");
+  const [ogpDescription, setOgpDescription] = useState(
+    record.ogpDescription || "",
+  );
+  const [credentials, setCredentials] = useState(
+    record.credentials.map((c: any) => ({
+      label: c.label || "",
+      loginId: c.loginId || "",
+      passwordHint: c.passwordHint || "",
+    })),
+  );
+  const [tagsInput, setTagsInput] = useState(
+    record.tags.map((t: any) => t.tagName).join(", "),
+  );
+  const [memo, setMemo] = useState(record.memo || "");
+  const [visibility, setVisibility] = useState<"PRIVATE" | "SHARED">(
+    record.visibility,
+  );
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleUrlBlur = async () => {
+    if (!url) return;
+    try {
+      const ogp = await getOgpInfoFn({ data: { url } });
+      if (ogp.title && !title) setTitle(ogp.title);
+      if (ogp.image) setOgpImage(ogp.image);
+      if (ogp.description) setOgpDescription(ogp.description);
+    } catch (e) {
+      console.error("Failed to fetch OGP info", e);
+    }
+  };
+
+  const handleAddCredential = () => {
+    setCredentials([
+      ...credentials,
+      { label: "", loginId: "", passwordHint: "" },
+    ]);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const tagsArray = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await updateRecord({
+        data: {
+          id: record.id,
+          data: {
+            title,
+            url: url || undefined,
+            ogpImage: ogpImage || undefined,
+            ogpDescription: ogpDescription || undefined,
+            memo: memo || undefined,
+            visibility,
+            credentials: credentials.filter(
+              (c) => c.label || c.loginId || c.passwordHint,
+            ),
+            tags: tagsArray,
+          },
+        },
+      });
+      await router.invalidate();
+      setIsEditing(false);
+    } catch (error) {
+      console.error(error);
+      alert("更新に失敗しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("このレコードを削除しますか？")) return;
+
+    try {
+      await deleteRecord({ data: { id: record.id } });
+      await navigate({ to: "/dashboard" });
+    } catch (error) {
+      console.error("削除エラー:", error);
+      alert("削除に失敗しました。");
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <h1 className="mb-8 text-[24px] font-semibold tracking-geist-h2 text-foreground">
+          レコードを編集
+        </h1>
+        <form onSubmit={handleEditSubmit} className="space-y-8">
+          <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[14px] font-medium text-foreground">
+                  URL
+                </label>
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onBlur={handleUrlBlur}
+                  className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                />
+              </div>
+              <div>
+                <label className="block text-[14px] font-medium text-foreground">
+                  サービス名 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+            <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+              <h2 className="text-[18px] font-semibold text-foreground tracking-geist-ui">
+                アカウント情報
+              </h2>
+              <button
+                type="button"
+                onClick={handleAddCredential}
+                className="text-[14px] font-medium text-orange-500 hover:text-orange-600 transition"
+              >
+                + 追加する
+              </button>
+            </div>
+            <div className="space-y-6">
+              {credentials.map((cred, index) => (
+                <div
+                  key={index}
+                  className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
+                >
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                      <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                        ラベル
+                      </label>
+                      <input
+                        type="text"
+                        value={cred.label}
+                        onChange={(e) => {
+                          const newCreds = [...credentials];
+                          newCreds[index].label = e.target.value;
+                          setCredentials(newCreds);
+                        }}
+                        className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                        ログインID
+                      </label>
+                      <input
+                        type="text"
+                        value={cred.loginId}
+                        onChange={(e) => {
+                          const newCreds = [...credentials];
+                          newCreds[index].loginId = e.target.value;
+                          setCredentials(newCreds);
+                        }}
+                        className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                        ヒント
+                      </label>
+                      <input
+                        type="text"
+                        value={cred.passwordHint}
+                        onChange={(e) => {
+                          const newCreds = [...credentials];
+                          newCreds[index].passwordHint = e.target.value;
+                          setCredentials(newCreds);
+                        }}
+                        className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg bg-white p-6 shadow-card transition-shadow space-y-6">
+            <div>
+              <label className="block text-[14px] font-medium text-foreground mb-1">
+                公開設定
+              </label>
+              <select
+                value={visibility}
+                onChange={(e) =>
+                  setVisibility(e.target.value as "PRIVATE" | "SHARED")
+                }
+                className="w-full rounded-md bg-white p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              >
+                <option value="PRIVATE">自分のみ (Private)</option>
+                <option value="SHARED">家族と共有 (Shared)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[14px] font-medium text-foreground mb-1">
+                タグ (カンマ区切り)
+              </label>
+              <input
+                type="text"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-[14px] font-medium text-foreground mb-1">
+                メモ
+              </label>
+              <textarea
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                rows={3}
+                className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              />
+            </div>
+          </section>
+
+          <div className="flex justify-end gap-4 border-t border-border pt-6">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="rounded-md bg-white px-6 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="rounded-md bg-orange-500 px-6 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 disabled:opacity-50 transition"
+            >
+              {isLoading ? "保存中..." : "保存する"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl p-6">
+      {/* 戻るボタン */}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 2) {
+              window.history.back();
+            } else {
+              router.navigate({ to: "/dashboard" });
+            }
+          }}
+          className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+        >
+          <span className="text-[16px] leading-none mb-0.5">←</span> ダッシュボードに戻る
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-lg bg-white shadow-card">
+        {/* OGP ヘッダー */}
+        <div className="relative aspect-video w-full bg-gray-100 md:aspect-[21/9]">
+          {record.ogpImage ? (
+            <img
+              src={record.ogpImage}
+              alt={record.title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-4xl font-bold text-gray-300">
+              {record.title.slice(0, 1)}
+            </div>
+          )}
+          {/* URLリンクがあればオーバーレイ */}
+          {record.url && (
+            <a
+              href={record.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-4 right-4 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm hover:bg-black/80"
+            >
+              サイトを開く ↗
+            </a>
+          )}
+        </div>
+
+        {/* 基本情報 */}
+        <div className="p-6 md:p-8">
+          <div className="mb-6 flex items-start justify-between">
+            <h1 className="text-[24px] font-semibold tracking-geist-h2 text-foreground">
+              {record.title}
+            </h1>
+            <span
+              className={`rounded-full px-3 py-1 text-[12px] font-medium tracking-wide uppercase ${
+                record.visibility === "SHARED"
+                  ? "bg-[#ebf5ff] text-[#0068d6]"
+                  : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {record.visibility === "SHARED" ? "家族と共有" : "自分のみ"}
+            </span>
+          </div>
+
+          {/* タグ */}
+          {record.tags.length > 0 && (
+            <div className="mb-8 flex flex-wrap gap-2">
+              {record.tags.map((tag: any) => (
+                <Link
+                  key={tag.id}
+                  to="/dashboard"
+                  search={{ tag: tag.tagName }}
+                  className="rounded bg-gray-100 px-2 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-200 transition"
+                >
+                  #{tag.tagName}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* アカウント情報（ID / ヒント） */}
+          <div className="mb-10">
+            <h2 className="mb-6 text-[18px] font-semibold text-foreground tracking-geist-ui border-b border-border pb-2">
+              アカウント情報
+            </h2>
+            {record.credentials.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                登録された情報はありません。
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {record.credentials.map((cred: any) => (
+                  <div
+                    key={cred.id}
+                    className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
+                  >
+                    {cred.label && (
+                      <div className="mb-2 text-xs font-bold text-orange-600">
+                        {cred.label}
+                      </div>
+                    )}
+                    <div className="mb-3">
+                      <div className="text-xs text-gray-500">ログインID</div>
+                      <div className="font-mono text-sm text-gray-800 select-all">
+                        {cred.loginId || "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">
+                        パスワードのヒント
+                      </div>
+                      <div className="text-sm font-medium text-gray-800">
+                        {cred.passwordHint || "-"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* メモ */}
+          {record.memo && (
+            <div className="mb-10">
+              <h2 className="mb-4 text-[14px] font-semibold text-foreground tracking-wide uppercase">
+                メモ
+              </h2>
+              <div className="rounded-md bg-gray-50/50 p-4 text-[14px] text-muted-foreground whitespace-pre-wrap shadow-border-light">
+                {record.memo}
+              </div>
+            </div>
+          )}
+
+          {/* アクションボタン (編集権限がある場合のみ) */}
+          {record.isEditable && (
+            <div className="mt-10 flex justify-end gap-4 border-t border-border pt-6">
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="rounded-md px-6 py-2 text-[14px] font-medium text-red-600 hover:bg-red-50 transition"
+              >
+                削除する
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background hover:bg-gray-800 transition"
+              >
+                編集する
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

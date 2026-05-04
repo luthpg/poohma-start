@@ -6,43 +6,51 @@ export const Route = createFileRoute("/")({
 
 function RouteComponent() {
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900">
+    <div className="min-h-screen bg-background font-sans text-foreground">
       {/* ナビゲーション */}
       <nav className="flex items-center justify-between px-6 py-4 md:px-12">
-        <div className="text-2xl font-black text-orange-500">PoohMa</div>
+        <div className="text-2xl font-bold text-orange-500 tracking-geist-h2">
+          PoohMa
+        </div>
         <Link
           to="/login"
-          className="rounded-full bg-gray-100 px-6 py-2 text-sm font-bold transition hover:bg-gray-200"
+          className="rounded-md bg-white px-4 py-1.5 text-sm font-medium transition hover:bg-gray-50 shadow-border text-foreground"
         >
           ログイン
         </Link>
       </nav>
 
       {/* ヒーローセクション */}
-      <header className="px-6 py-16 text-center md:py-24">
-        <h1 className="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight md:text-6xl">
+      <header className="px-6 py-24 text-center md:py-32">
+        <h1 className="mx-auto max-w-3xl text-[40px] font-semibold leading-[1.1] tracking-geist-hero md:text-[64px]">
           家族のパスワード、
           <br />
           <span className="text-orange-500">「ヒント」</span>で安全に共有。
         </h1>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600">
+        <p className="mx-auto mt-8 max-w-xl text-[18px] md:text-[20px] leading-[1.8] text-muted-foreground">
           パスワードそのものを教え合うのはもう終わり。
           PoohMaなら、ヒントだけで家族が「あぁ、あれね！」と思い出せる。
         </p>
-        <div className="mt-10 flex justify-center gap-4">
+        <div className="mt-12 flex justify-center gap-4">
           <Link
             to="/login"
-            className="rounded-full bg-orange-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600"
+            className="rounded-md bg-foreground px-6 py-3 text-[16px] font-medium text-background transition hover:bg-gray-800 shadow-border"
           >
             無料で始める
+          </Link>
+          <Link
+            to="/login"
+            className="rounded-md bg-white px-6 py-3 text-[16px] font-medium text-foreground transition hover:bg-gray-50 shadow-border"
+          >
+            ログイン
           </Link>
         </div>
       </header>
 
       {/* 特徴セクション */}
-      <section className="bg-orange-50 px-6 py-20">
+      <section className="bg-white px-6 py-24 md:py-32">
         <div className="mx-auto max-w-5xl">
-          <h2 className="mb-12 text-center text-3xl font-bold">
+          <h2 className="mb-16 text-center text-[32px] font-semibold tracking-geist-h1">
             PoohMaが選ばれる理由
           </h2>
           <div className="grid gap-8 md:grid-cols-3">
@@ -66,13 +74,19 @@ function RouteComponent() {
       </section>
 
       {/* 使い方セクション */}
-      <section className="px-6 py-20 text-center">
-        <h2 className="mb-16 text-3xl font-bold">使いかたはシンプル</h2>
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-12 md:flex-row">
+      <section className="px-6 py-24 text-center md:py-32 border-t border-border">
+        <h2 className="mb-20 text-[32px] font-semibold tracking-geist-h1">
+          使いかたはシンプル
+        </h2>
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-12 md:flex-row relative">
           <Step num="1" text="サービスを登録して「ヒント」を入力" />
-          <div className="hidden text-gray-300 md:block">→</div>
+          <div className="hidden text-border md:block text-2xl font-light">
+            →
+          </div>
           <Step num="2" text="家族を招待して情報を共有" />
-          <div className="hidden text-gray-300 md:block">→</div>
+          <div className="hidden text-border md:block text-2xl font-light">
+            →
+          </div>
           <Step num="3" text="ヒントを見てパスワードを思い出す" />
         </div>
       </section>
@@ -95,10 +109,16 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-8 shadow-sm transition hover:shadow-md">
-      <div className="mb-4 text-4xl">{icon}</div>
-      <h3 className="mb-2 text-xl font-bold">{title}</h3>
-      <p className="text-sm leading-relaxed text-gray-600">{description}</p>
+    <div className="rounded-lg bg-white p-8 shadow-card transition-shadow hover:shadow-card-hover">
+      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-gray-50 shadow-border text-2xl">
+        {icon}
+      </div>
+      <h3 className="mb-3 text-[24px] font-semibold tracking-geist-h2 text-foreground">
+        {title}
+      </h3>
+      <p className="text-[16px] leading-[1.6] text-muted-foreground">
+        {description}
+      </p>
     </div>
   );
 }
@@ -106,10 +126,12 @@ function FeatureCard({
 function Step({ num, text }: { num: string; text: string }) {
   return (
     <div className="flex flex-1 flex-col items-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-orange-500 font-bold text-white">
+      <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-[14px] font-medium text-orange-600 shadow-border">
         {num}
       </div>
-      <p className="font-medium">{text}</p>
+      <p className="font-medium text-[16px] leading-[1.5] text-foreground">
+        {text}
+      </p>
     </div>
   );
 }
