@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { getRecords } from "@/services/records.functions";
+import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
 
 const searchSchema = z.object({
   q: z.string().optional(),
@@ -12,14 +12,22 @@ export const Route = createFileRoute("/(app)/dashboard")({
   validateSearch: searchSchema,
   loaderDeps: ({ search: { q, tag } }) => ({ q, tag }),
   loader: async ({ context, deps: { q, tag } }) => {
-    const records = await getRecords({ data: { q, tag } });
-    return { records, user: context.user, searchParams: { q, tag } };
+    const [records, availableTags] = await Promise.all([
+      getRecords({ data: { q, tag } }),
+      getAvailableTagsFn(),
+    ]);
+    return {
+      records,
+      availableTags,
+      user: context.user,
+      searchParams: { q, tag },
+    };
   },
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { records, user, searchParams } = Route.useLoaderData();
+  const { records, availableTags, user, searchParams } = Route.useLoaderData();
   const navigate = useNavigate({ from: Route.fullPath });
   const [searchInput, setSearchInput] = useState(searchParams.q || "");
 
@@ -78,26 +86,35 @@ function RouteComponent() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="タグやサービス名で検索..."
-            className="w-full rounded-md bg-white px-4 py-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
+            className="w-full rounded-md bg-white px-4 py-2.5 h-10 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
           />
           <button
             type="submit"
-            className="rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border hover:bg-gray-800 transition"
+            className="rounded-md bg-foreground px-4 py-2.5 h-10 w-20 text-[14px] font-medium text-background shadow-border hover:bg-gray-800 transition"
           >
             検索
           </button>
         </form>
-        {searchParams.tag && (
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-[12px] text-muted-foreground">
-              絞り込みタグ:
-            </span>
-            <span
-              className="cursor-pointer rounded-full bg-orange-100 px-3 py-1 text-[12px] font-medium text-orange-700 hover:bg-orange-200 transition"
-              onClick={() => handleTagClick(searchParams.tag!)}
-            >
-              #{searchParams.tag} ✕
-            </span>
+        {/* タグクラウド (フィルター) */}
+        {availableTags.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {availableTags.map((t: string) => {
+              const isActive = searchParams.tag === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => handleTagClick(t)}
+                  className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    isActive
+                      ? "bg-orange-500 text-white shadow-border"
+                      : "bg-white text-gray-600 shadow-border hover:bg-gray-50"
+                  }`}
+                >
+                  #{t}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

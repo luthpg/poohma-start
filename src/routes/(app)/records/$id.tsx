@@ -298,7 +298,8 @@ function RecordDetailComponent() {
           }}
           className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
         >
-          <span className="text-[16px] leading-none mb-0.5">←</span> ダッシュボードに戻る
+          <span className="text-[16px] leading-none mb-0.5">←</span>{" "}
+          ダッシュボードに戻る
         </button>
       </div>
 
@@ -383,17 +384,30 @@ function RecordDetailComponent() {
                         {cred.label}
                       </div>
                     )}
-                    <div className="mb-3">
-                      <div className="text-xs text-gray-500">ログインID</div>
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-xs text-gray-500">ログインID</div>
+                        {cred.loginId && (
+                          <CopyButton text={cred.loginId} label="ログインID" />
+                        )}
+                      </div>
                       <div className="font-mono text-sm text-gray-800 select-all">
                         {cred.loginId || "-"}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500">
-                        パスワードのヒント
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-xs text-gray-500">
+                          パスワードのヒント
+                        </div>
+                        {cred.passwordHint && (
+                          <CopyButton
+                            text={cred.passwordHint}
+                            label="パスワードのヒント"
+                          />
+                        )}
                       </div>
-                      <div className="text-sm font-medium text-gray-800">
+                      <div className="text-sm font-medium text-gray-800 select-all">
                         {cred.passwordHint || "-"}
                       </div>
                     </div>
@@ -437,5 +451,37 @@ function RecordDetailComponent() {
         </div>
       </div>
     </div>
+  );
+}
+
+// アクセシビリティとモバイル操作性を考慮したコピーボタン
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={`${label}をコピー`}
+      // モバイルでタップしやすいよう p-2 -m-2 で物理的なタッチエリアを拡大
+      className="p-2 -m-2 text-[11px] font-medium text-orange-500 hover:text-orange-700 transition flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded"
+    >
+      {copied ? (
+        <>
+          <span aria-hidden="true" className="text-green-500">
+            ✓
+          </span>
+          <span className="text-green-600">コピー済</span>
+        </>
+      ) : (
+        <span>コピー</span>
+      )}
+    </button>
   );
 }

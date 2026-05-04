@@ -264,3 +264,32 @@ export const getOgpInfoFn = createServerFn({ method: "GET" })
       return { title: "", image: "", description: "" };
     }
   });
+
+/**
+ * 利用可能な全タグ一覧の取得
+ */
+export const getAvailableTagsFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const user = await getAuthUser();
+    if (!user) return [];
+
+    const tags = await db.recordTag.findMany({
+      where: {
+        record: {
+          OR: [
+            { userId: user.id },
+            {
+              visibility: Visibility.SHARED,
+              familyId: user.familyId || "no-family",
+            },
+          ],
+        },
+      },
+      select: { tagName: true },
+      distinct: ["tagName"],
+      orderBy: { tagName: "asc" },
+    });
+
+    return tags.map((t) => t.tagName);
+  },
+);
