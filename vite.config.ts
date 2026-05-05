@@ -15,11 +15,7 @@ const config = defineConfig({
   },
   plugins: [
     devtools(),
-    nitro({
-      rollupConfig: {
-        external: ["firebase-admin", "pg", "@prisma/client"],
-      },
-    }),
+    nitro(),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
       projects: ["./tsconfig.json"],
