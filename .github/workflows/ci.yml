@@ -31,6 +31,9 @@ jobs:
       - name: Lint & Format Check (Biome)
         run: pnpm run check
 
+      - name: Generate Prisma Client
+        run: pnpm run db:generate
+
       - name: Type Check (tsgo)
         run: pnpm run tsc
 
