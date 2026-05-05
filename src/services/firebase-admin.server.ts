@@ -18,7 +18,10 @@ export function initializeFirebaseAdmin() {
       const serviceAccount = JSON.parse(serviceAccountVar);
       // Private key の改行コードを正しく処理する
       if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+        serviceAccount.private_key = serviceAccount.private_key.replace(
+          /\\n/g,
+          "\n",
+        );
       }
       return admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),

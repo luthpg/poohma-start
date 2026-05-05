@@ -58,7 +58,7 @@ function NewRecordComponent() {
         .map((t) => t.trim())
         .filter(Boolean);
 
-      const result = await createRecord({
+      await createRecord({
         data: {
           title,
           url,
@@ -92,10 +92,14 @@ function NewRecordComponent() {
         <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
           <div className="space-y-4">
             <div>
-              <label className="block text-[14px] font-medium text-foreground">
+              <label
+                htmlFor="url-input"
+                className="block text-[14px] font-medium text-foreground"
+              >
                 URL
               </label>
               <input
+                id="url-input"
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
@@ -109,10 +113,14 @@ function NewRecordComponent() {
             </div>
 
             <div>
-              <label className="block text-[14px] font-medium text-foreground">
+              <label
+                htmlFor="title-input"
+                className="block text-[14px] font-medium text-foreground"
+              >
                 サービス名 <span className="text-red-500">*</span>
               </label>
               <input
+                id="title-input"
                 type="text"
                 required
                 value={title}
@@ -141,15 +149,19 @@ function NewRecordComponent() {
           <div className="space-y-6">
             {credentials.map((cred, index) => (
               <div
-                key={index}
+                key={cred.loginId}
                 className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div>
-                    <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                    <label
+                      htmlFor={`label-input-${index}`}
+                      className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1"
+                    >
                       ラベル (例: パパ用)
                     </label>
                     <input
+                      id={`label-input-${index}`}
                       type="text"
                       value={cred.label}
                       onChange={(e) => {
@@ -161,10 +173,14 @@ function NewRecordComponent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                    <label
+                      htmlFor={`login-id-input-${index}`}
+                      className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1"
+                    >
                       ログインID
                     </label>
                     <input
+                      id={`login-id-input-${index}`}
                       type="text"
                       value={cred.loginId}
                       onChange={(e) => {
@@ -176,10 +192,14 @@ function NewRecordComponent() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                      パスワードのヒント
+                    <label
+                      htmlFor={`password-hint-input-${index}`}
+                      className="block text-[12px] font-medium text-muted-foreground uppercase tracking-wider mb-1"
+                    >
+                      パスワードヒント
                     </label>
                     <input
+                      id={`password-hint-input-${index}`}
                       type="text"
                       value={cred.passwordHint}
                       onChange={(e) => {
@@ -200,10 +220,14 @@ function NewRecordComponent() {
         {/* その他設定（公開設定・タグ・メモ） */}
         <section className="rounded-lg bg-white p-6 shadow-card transition-shadow space-y-6">
           <div>
-            <label className="block text-[14px] font-medium text-foreground mb-1">
+            <label
+              htmlFor="visibility-input"
+              className="block text-[14px] font-medium text-foreground mb-1"
+            >
               公開設定
             </label>
             <select
+              id="visibility-input"
               value={visibility}
               onChange={(e) =>
                 setVisibility(e.target.value as "PRIVATE" | "SHARED")
@@ -216,10 +240,14 @@ function NewRecordComponent() {
           </div>
 
           <div>
-            <label className="block text-[14px] font-medium text-foreground mb-1">
+            <label
+              htmlFor="tags-input"
+              className="block text-[14px] font-medium text-foreground mb-1"
+            >
               タグ (カンマ区切り)
             </label>
             <input
+              id="tags-input"
               type="text"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
@@ -229,10 +257,14 @@ function NewRecordComponent() {
           </div>
 
           <div>
-            <label className="block text-[14px] font-medium text-foreground mb-1">
+            <label
+              htmlFor="memo-input"
+              className="block text-[14px] font-medium text-foreground mb-1"
+            >
               メモ
             </label>
             <textarea
+              id="memo-input"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={3}

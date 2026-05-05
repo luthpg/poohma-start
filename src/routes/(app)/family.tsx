@@ -28,7 +28,7 @@ function FamilyComponent() {
     try {
       await createFamilyFn({ data: { name: createName } });
       await router.invalidate();
-    } catch (e) {
+    } catch {
       alert("作成に失敗しました");
     } finally {
       setIsLoading(false);
@@ -41,7 +41,7 @@ function FamilyComponent() {
     try {
       await joinFamilyFn({ data: { inviteCode: joinCode } });
       await router.invalidate();
-    } catch (e) {
+    } catch {
       alert("参加に失敗しました");
     } finally {
       setIsLoading(false);
@@ -78,6 +78,7 @@ function FamilyComponent() {
                 {family.id}
               </code>
               <button
+                type="button"
                 onClick={() => navigator.clipboard.writeText(family.id)}
                 className="rounded-md bg-white px-4 py-1.5 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
               >
@@ -119,11 +120,15 @@ function FamilyComponent() {
             </h2>
             <form onSubmit={handleCreate} className="space-y-5">
               <div>
-                <label className="mb-1.5 block text-[14px] font-medium text-foreground">
+                <label
+                  htmlFor="family-name-input"
+                  className="mb-1.5 block text-[14px] font-medium text-foreground"
+                >
                   グループ名
                 </label>
                 <input
                   type="text"
+                  id="family-name-input"
                   required
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
@@ -148,10 +153,14 @@ function FamilyComponent() {
             </h2>
             <form onSubmit={handleJoin} className="space-y-5">
               <div>
-                <label className="mb-1.5 block text-[14px] font-medium text-foreground">
+                <label
+                  htmlFor="family-join-input"
+                  className="mb-1.5 block text-[14px] font-medium text-foreground"
+                >
                   招待コード
                 </label>
                 <input
+                  id="family-join-input"
                   type="text"
                   required
                   value={joinCode}

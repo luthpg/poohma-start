@@ -6,7 +6,7 @@ import { adminAuth } from "./firebase-admin.server";
 export const getFamilyMembersFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const user = await getAuthUser();
-    if (!user || !user.familyId) return null;
+    if (!user?.familyId) return null;
 
     const family = await db.family.findUnique({
       where: { id: user.familyId },

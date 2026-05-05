@@ -191,8 +191,9 @@ function ServiceCard({
         {/* タグ表示 */}
         <div className="mb-0 md:mb-4 flex flex-wrap gap-1">
           {record.tags.map((tag: any) => (
-            <span
+            <button
               key={tag.id}
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -201,7 +202,7 @@ function ServiceCard({
               className="relative z-10 cursor-pointer rounded-full bg-gray-100 px-2 py-0.5 text-[10px] md:text-[12px] text-gray-600 hover:bg-gray-200 transition"
             >
               #{tag.tagName}
-            </span>
+            </button>
           ))}
         </div>
 

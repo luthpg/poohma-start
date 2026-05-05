@@ -34,12 +34,13 @@ export const syncUser = createServerFn({ method: "GET" })
       },
     });
 
-    const sessionCookie = await getSessionCookie(idToken, 60 * 60 * 24 * 5);
+    const sessionCookie = await getSessionCookie(idToken, 60 * 60 * 24 * 14);
     setCookie("session", sessionCookie, {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 14,
     });
 
     return user.id;
@@ -71,7 +72,8 @@ export const getAuthUser = createServerFn({ method: "GET" }).handler(
       });
 
       return user;
-    } catch {
+    } catch (error) {
+      console.error("Auth verification failed:", error);
       return null;
     }
   },

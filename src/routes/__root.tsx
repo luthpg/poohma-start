@@ -52,6 +52,7 @@ export const Route = createRootRoute({
               : "予期せぬエラーが発生しました。"}
           </p>
           <button
+            type="button"
             onClick={() => {
               window.location.href = "/";
             }}
@@ -74,6 +75,7 @@ export const Route = createRootRoute({
             お探しのページは見つかりませんでした。
           </p>
           <button
+            type="button"
             onClick={() => {
               window.location.href = "/";
             }}
