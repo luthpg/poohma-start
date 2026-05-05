@@ -7,17 +7,17 @@
 設計書および初期の残タスクに基づき、以下の主要機能の実装が完了しています。
 
 - **レコード管理の基本機能**:
-    - 新規作成画面 (`/records/new`): OGP自動取得・バリデーション対応。
-    - 詳細・編集画面 (`/records/$id`): インライン編集・削除・詳細表示。
-    - ダッシュボード: 検索・タグフィルタリング・レスポンシブ対応（モバイルでの横長カード化）。
+  - 新規作成画面 (`/records/new`): OGP自動取得・バリデーション対応。
+  - 詳細・編集画面 (`/records/$id`): インライン編集・削除・詳細表示。
+  - ダッシュボード: 検索・タグフィルタリング・レスポンシブ対応（モバイルでの横長カード化）。
 - **家族（Family）管理機能**:
-    - 家族の作成・参加・メンバー表示機能。
-    - Firebase Custom Claims (`family_id`) のサーバー側更新処理。
+  - 家族の作成・参加・メンバー表示機能。
+  - Firebase Custom Claims (`family_id`) のサーバー側更新処理。
 - **基盤・セキュリティ**:
-    - PostgreSQL RLS (Row Level Security) ポリシーの定義。
-    - グローバルなエラーハンドリング (`errorComponent`, `notFoundComponent`)。
-    - TanStack Router による型安全な `searchParams` のパース。
-    - デザインシステム (Vercel Geist) の初期導入とUI刷新。
+  - PostgreSQL RLS (Row Level Security) ポリシーの定義。
+  - グローバルなエラーハンドリング (`errorComponent`, `notFoundComponent`)。
+  - TanStack Router による型安全な `searchParams` のパース。
+  - デザインシステム (Vercel Geist) の初期導入とUI刷新。
 
 ---
 
@@ -26,28 +26,38 @@
 MECEの観点で整理した、優先的に対応すべき未実装事項です。
 
 ### 2.1. 機能・UIの拡張
+
 - [ ] **全タグ一覧の取得・表示 (`getAvailableTagsFn`)**:
-    - ダッシュボードにおいて、登録済みの全タグを一覧表示し、クリックでフィルタリングできる機能。
+  - ダッシュボードにおいて、登録済みの全タグを一覧表示し、クリックでフィルタリングできる機能。
 - [ ] **ユーザープロフィール管理**:
-    - 表示名 (`displayName`) の変更用UIおよびバックエンド処理。
+  - 表示名 (`displayName`) の変更用UIおよびバックエンド処理。
 - [ ] **コピー・利便性向上**:
-    - ログインID等をクリップボードにワンクリックでコピーする機能。
+  - ログインID等をクリップボードにワンクリックでコピーする機能。
+- [ ] **CSVインポート・エクスポート**:
+  - 既存のパスワード管理ツール等からの移行を容易にするためのCSVデータ連携（インポート・エクスポート）機能。
 
 ### 2.2. セキュリティ・信頼性の強化
+
 - [ ] **Database RLS の完全実効化**:
-    - Prisma経由でクエリを発行する際、DBセッション変数 (`app.current_user_id`, `app.current_family_id`) を確実に注入する実装（Prisma Extension等の活用）。
+  - Prisma経由でクエリを発行する際、DBセッション変数 (`app.current_user_id`, `app.current_family_id`) を確実に注入する実装（Prisma Extension等の活用）。
 - [ ] **認証ミドルウェアの導入**:
-    - `createServerFn` ごとの認証チェックを Middleware に共通化し、安全性を向上。
+  - `createServerFn` ごとの認証チェックを Middleware に共通化し、安全性を向上。
 - [ ] **OGP取得ロジックの堅牢化**:
-    - 不正な HTML や特殊な文字コードへの対応、入力値のサニタイズ。
+  - 不正な HTML や特殊な文字コードへの対応、入力値のサニタイズ。
+- [ ] **クライアントサイドE2E暗号化 (E2EE) の実装**:
+  - **概要**: `ServiceRecord.passwordHint` を AES-GCM (256-bit) で暗号化。Web Crypto API を使用し、クライアント側でのみ復号可能な設計にする。
+  - **キー管理**: 家族ごとに `MasterKey` を生成。`MasterKey` 自体は家族パスコード（PBKDF2導出鍵）で暗号化してDB保存。
+  - **パスコード回転**: 古いパスコードで `MasterKey` を復号し、新パスコードで再暗号化することで、個別レコードの書き換えなしでパスコード変更を実現。
+  - **コンポーネント**: `lib/crypto.ts` (コア)、`PasscodeProvider` (Context/メモリ保持)、Prisma Schema 更新、およびサーバー関数の実装。
 
 ### 2.3. デザイン・UXの洗練
+
 - [ ] **`DESIGN.md` の厳格な適用**:
-    - [ ] タイポグラフィ: 負のレタースペーシング（`-2.4px` 等）の厳密な適用。
-    - [ ] ボーダーの排除: すべての `border` を `box-shadow` による「Shadow-as-border」に置き換え。
+  - [ ] タイポグラフィ: 負のレタースペーシング（`-2.4px` 等）の厳密な適用。
+  - [ ] ボーダーの排除: すべての `border` を `box-shadow` による「Shadow-as-border」に置き換え。
 - [ ] **インタラクションの向上**:
-    - [ ] ローディング時のスケルトンスクリーンの導入。
-    - [ ] `biome check` で指摘されているアクセシビリティ関連（a11y）の Lint エラー解消。
+  - [ ] ローディング時のスケルトンスクリーンの導入。
+  - [ ] `biome check` で指摘されているアクセシビリティ関連（a11y）の Lint エラー解消。
 
 ---
 

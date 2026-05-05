@@ -92,6 +92,11 @@
 * コピー成功時は「✓ コピー済」の視覚的フィードバックを表示（2秒後に自動復帰）。
 * モバイルでのタップしやすさ（タッチターゲット拡大）とスクリーンリーダー対応（`aria-label`）を考慮。
 
+### 3.7 データポータビリティ
+
+* **CSVインポート:** 他のパスワード管理ツール等からエクスポートされたCSVデータを取り込み、一括でレコードを作成する機能。
+* **CSVエクスポート:** 登録済みの全データをCSV形式で出力し、バックアップや他ツールへの移行を可能にする機能。
+
 ---
 
 ## 4. 非機能要件 (Non-Functional Requirements)
@@ -101,6 +106,11 @@
 * **通信:** 全ての通信をHTTPSで暗号化。
 * **認証:** Firebase Authenticationを利用し、セッション管理を行う。
 * **認可:** アプリケーション層のサーバー関数で権限チェックを実施。将来的にはデータベースのRow Level Security (RLS) を実効化する。
+* **クライアントサイドE2E暗号化 (E2EE):**
+  * **対象:** `AccountCredential` の `PasswordHint` フィールド。
+  * **方式:** AES-GCM (256-bit)。Web Crypto API を使用し、ブラウザ側で暗号化・復号を行う。
+  * **鍵管理:** 家族ごとの `MasterKey` を使用。`MasterKey` 自体は家族の `FamilyPasscode` で保護され、サーバー側では一切の復号が不可能な構成。
+  * **可用性:** パスコード再設定（Rotation）時に、全レコードを再暗号化せずに鍵のみを再構築できる設計。
 
 ### 4.2 パフォーマンス
 
@@ -119,10 +129,10 @@
 
 ### 5.1 主要エンティティ
 
-* **Family:** ID, Name, CreatedAt, UpdatedAt
+* **Family:** ID, Name, EncryptedMasterKey, MasterKeySalt, MasterKeyIv, CreatedAt, UpdatedAt
 * **User:** ID, Email, DisplayName, FamilyID (FK), CreatedAt, UpdatedAt
 * **ServiceRecord:** ID, UserID, FamilyID, Title, URL, OgpImage, OgpDescription, Memo, Visibility, CreatedAt, UpdatedAt
-* **AccountCredential:** ID, RecordID, Label, LoginID, PasswordHint, CreatedAt, UpdatedAt
+* **AccountCredential:** ID, RecordID, Label, LoginID, EncryptedHint, HintIv, CreatedAt, UpdatedAt
 * **RecordTag:** ID, RecordID, TagName (UNIQUE per record)
 
 ---

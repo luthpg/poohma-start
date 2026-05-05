@@ -55,6 +55,9 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | id | uuid | PK, default: gen_random_uuid() | 家族ID（招待コードとしても使用） |
 | name | varchar(100) | NOT NULL | 家族名 |
+| encrypted_master_key | text | | パスコードで暗号化されたMasterKey |
+| master_key_salt | varchar(255) | | パスコード導出用ソルト |
+| master_key_iv | varchar(255) | | MasterKey暗号化用IV |
 | created_at | timestamptz | default: now() | 作成日 |
 | updated_at | timestamptz | auto | 更新日 |
 
@@ -98,7 +101,8 @@ graph TD
 | record_id | uuid | FK (service_records.id) ON DELETE CASCADE | 親レコードID |
 | label | varchar(100) | | 例: パパ用 |
 | login_id | varchar(255) | | ログインID |
-| password_hint | text | | パスワードのヒント |
+| encrypted_hint | text | | 暗号化されたパスワードヒント |
+| hint_iv | varchar(255) | | ヒント暗号化用IV |
 | created_at | timestamptz | default: now() | 作成日 |
 | updated_at | timestamptz | auto | 更新日 |
 
@@ -148,6 +152,8 @@ graph TD
 | `deleteRecord` | POST | レコード削除。Cascade設定により関連データも自動削除。 |
 | `getOgpInfoFn` | GET | 指定URLのHTMLから `og:title`, `og:image`, `og:description` を正規表現で抽出。 |
 | `getAvailableTagsFn` | GET | ユーザーが閲覧可能なレコードに紐づくタグの重複排除一覧を取得。 |
+| `exportRecordsCsv` | GET | 閲覧可能な全データをCSV形式で取得。 |
+| `importRecordsCsv` | POST | CSVデータを受け取り、バリデーション後に一括登録。 |
 
 #### 認証 (`src/services/auth.functions.ts`)
 
@@ -162,6 +168,7 @@ graph TD
 | `createFamilyFn` | 新しい家族グループを作成し、作成者を所属させる。 |
 | `joinFamilyFn` | 招待コード（家族ID）で既存の家族に参加する。 |
 | `getFamilyMembersFn` | 所属する家族のメンバー一覧を取得する。 |
+| `rotateFamilyPasscode` | 古いパスコードでMasterKeyを復号し、新しいパスコードで再暗号化して保存する。 |
 
 ### 3.3 データ取得と状態管理
 
@@ -199,6 +206,18 @@ if (!isOwner && !isFamilyShared) {
 ### 4.3 レコード更新のトランザクション処理
 
 `updateRecord` では、関連テーブル（`AccountCredential`, `RecordTag`）を一度削除してから再作成する「Delete & Recreate」パターンを採用する。Prismaの `$transaction` 内で実行し、整合性を保証する。
+
+### 4.4 クライアントサイドE2E暗号化 (E2EE)
+
+1. **鍵導出 (PBKDF2):** ユーザーが入力した `FamilyPasscode` と DB上の `master_key_salt` を使い、ストレッチングを行って暗号鍵を導出。
+2. **MasterKeyの復号:** 導出した鍵で `encrypted_master_key` を復号し、メモリ上に保持する（`PasscodeProvider` / React Context）。
+3. **データの暗号化・復号 (AES-GCM):**
+   - 保存時: メモリ上の `MasterKey` を使用して `passwordHint` を暗号化し、暗号文と `iv` をサーバーへ送信。
+   - 取得時: サーバーから届いた暗号文と `iv` を `MasterKey` で復号して表示。
+4. **パスコード変更 (Rotation):**
+   - クライアント側で「旧パスコード」と「新パスコード」を入力。
+   - 旧パスコードで `MasterKey` を復号し、新パスコードで再暗号化。
+   - サーバー側では `MasterKey` そのものは変更せず、暗号化された外殻のみを更新するため、個別レコードの再暗号化は不要。
 
 ---
 
