@@ -32,7 +32,7 @@ jobs:
         run: pnpm run check
 
       - name: Type Check (tsgo)
-        run: pnpm exec tsgo --noEmit
+        run: pnpm run tsc
 
       - name: Run Tests (Vitest)
         run: pnpm run test

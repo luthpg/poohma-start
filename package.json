@@ -1,5 +1,6 @@
 {
   "name": "poohma-start",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "tsc": "tsgo --noEmit",
     "check": "biome check --write",
     "dc:up": "docker-compose up -d",
     "dc:down": "docker-compose down -v",

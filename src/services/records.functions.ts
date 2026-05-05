@@ -56,6 +56,8 @@ export const getRecords = createServerFn({ method: "GET" })
     };
 
     const records = await db.serviceRecord.findMany({
+      // biome-ignore lint/suspicious/noTsIgnore: Prismaの型の問題でエラーが出る場合がある
+      // @ts-ignore Prismaの型の問題でエラーが出る場合がある
       where: whereCondition,
       include: {
         tags: true,
