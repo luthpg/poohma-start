@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   createFamilyFn,
   getFamilyMembersFn,
@@ -29,7 +30,7 @@ function FamilyComponent() {
       await createFamilyFn({ data: { name: createName } });
       await router.invalidate();
     } catch {
-      alert("作成に失敗しました");
+      toast.error("作成に失敗しました");
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +43,7 @@ function FamilyComponent() {
       await joinFamilyFn({ data: { inviteCode: joinCode } });
       await router.invalidate();
     } catch {
-      alert("参加に失敗しました");
+      toast.error("参加に失敗しました");
     } finally {
       setIsLoading(false);
     }

@@ -6,6 +6,18 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { type SubmitEvent, useState } from "react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   deleteRecord,
   getOgpInfoFn,
@@ -100,21 +112,24 @@ function RecordDetailComponent() {
       setIsEditing(false);
     } catch (error) {
       console.error(error);
-      alert("更新に失敗しました");
+      toast.error("更新に失敗しました");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("このレコードを削除しますか？")) return;
+    setIsLoading(true);
 
     try {
       await deleteRecord({ data: { id: record.id } });
+      toast.success("レコードを削除しました");
       await navigate({ to: "/dashboard" });
     } catch (error) {
       console.error("削除エラー:", error);
-      alert("削除に失敗しました。");
+      toast.error("削除に失敗しました");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -469,13 +484,35 @@ function RecordDetailComponent() {
           {/* アクションボタン (編集権限がある場合のみ) */}
           {record.isEditable && (
             <div className="mt-10 flex justify-end gap-4 border-t border-border pt-6">
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="rounded-md px-6 py-2 text-[14px] font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-              >
-                削除する
-              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded-md px-6 py-2 text-[14px] font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                  >
+                    削除する
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      レコードを削除しますか？
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      この操作は取り消せません。本当に削除してもよろしいですか？
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-red-500 hover:bg-red-600 focus:ring-red-500"
+                    >
+                      削除する
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}

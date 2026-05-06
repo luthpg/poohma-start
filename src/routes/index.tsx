@@ -29,15 +29,10 @@ function RouteComponent() {
         </h1>
         <p className="mx-auto mt-8 max-w-xl text-[18px] md:text-[20px] leading-[1.8] text-muted-foreground">
           パスワードそのものを教え合うのはもう終わり。
+          <br />
           PoohMaなら、ヒントだけで家族が「あぁ、あれね！」と思い出せる。
         </p>
         <div className="mt-12 flex justify-center gap-4">
-          <Link
-            to="/login"
-            className="rounded-md bg-foreground px-6 py-3 text-[16px] font-medium text-background transition hover:bg-foreground/90 shadow-border"
-          >
-            無料で始める
-          </Link>
           <Link
             to="/login"
             className="rounded-md bg-card px-6 py-3 text-[16px] font-medium text-foreground transition hover:bg-accent shadow-border"
@@ -57,17 +52,23 @@ function RouteComponent() {
             <FeatureCard
               icon="🔒"
               title="パスワードを保存しない"
-              description="保存するのは「ヒント」だけ。万が一の流出時も、家族以外には正解が分かりません。"
+              description={
+                "保存するのは「ヒント」だけでOK。\n万が一の流出時も、家族以外には正解が分かりません。"
+              }
             />
             <FeatureCard
               icon="👨‍👩‍👧‍👦"
               title="家族専用の共有空間"
-              description="招待した家族だけで情報を管理。NetflixやWi-Fiの情報を一箇所にまとめます。"
+              description={
+                "招待した家族だけで情報を管理。\n動画視聴サービスやWi-Fiの情報などを一箇所にまとめます。"
+              }
             />
             <FeatureCard
               icon="✨"
               title="URLから情報を自動取得"
-              description="サービスのURLを貼るだけで、ロゴやタイトルを自動設定。管理が楽しくなります。"
+              description={
+                "サービスのURLを貼るだけで、ロゴやタイトルを自動設定。\n管理が楽しくなります。"
+              }
             />
           </div>
         </div>
@@ -116,7 +117,7 @@ function FeatureCard({
       <h3 className="mb-3 text-[24px] font-semibold tracking-geist-h2 text-foreground">
         {title}
       </h3>
-      <p className="text-[16px] leading-[1.6] text-muted-foreground">
+      <p className="text-[16px] leading-[1.6] text-muted-foreground whitespace-pre-line">
         {description}
       </p>
     </div>

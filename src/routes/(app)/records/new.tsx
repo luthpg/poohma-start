@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { createRecord, getOgpInfoFn } from "@/services/records.functions";
 
 export const Route = createFileRoute("/(app)/records/new")({
@@ -75,7 +76,7 @@ function NewRecordComponent() {
       await navigate({ to: "/dashboard" });
     } catch (error) {
       console.error("保存エラー:", error);
-      alert("保存に失敗しました。");
+      toast.error("保存に失敗しました。");
     } finally {
       setIsLoading(false);
     }
