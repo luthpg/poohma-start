@@ -22,7 +22,7 @@ export const syncUser = createServerFn({ method: "POST" })
   .inputValidator((data: { idToken: string }) => data)
   .handler(async ({ data: { idToken } }) => {
     const decodedToken = await adminAuth().verifyIdToken(idToken);
-    const { uid, email, name } = decodedToken;
+    const { uid, email, name, picture } = decodedToken;
 
     if (!email) throw new Error("Email is required");
 
@@ -32,11 +32,13 @@ export const syncUser = createServerFn({ method: "POST" })
       update: {
         email,
         displayName: name,
+        photoURL: picture,
       },
       create: {
         id: uid,
         email,
         displayName: name,
+        photoURL: picture,
       },
     });
 
@@ -91,6 +93,7 @@ export const getAuthUser = createServerFn({ method: "GET" }).handler(
           id: true,
           email: true,
           displayName: true,
+          photoURL: true,
           familyId: true,
         },
       });

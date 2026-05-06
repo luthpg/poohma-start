@@ -66,7 +66,9 @@ export function UserMenu({
     try {
       const data = await exportRecordsCsv();
       const csv = Papa.unparse(data);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      // Excelの文字化け対策としてBOM (UTF-8) を付与
+      const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+      const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
