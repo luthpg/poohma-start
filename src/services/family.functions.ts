@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { authMiddleware } from "./auth.middleware";
-import { db } from "./db.server";
-import { adminAuth } from "./firebase-admin.server";
+import { authMiddleware } from "@/services/auth.middleware";
+import { db } from "@/services/db.server";
+import { adminAuth } from "@/services/firebase-admin.server";
 
 export const getFamilyMembersFn = createServerFn({ method: "GET" })
   .middleware([authMiddleware])

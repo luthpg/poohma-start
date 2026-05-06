@@ -1,8 +1,8 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { signInWithPopup } from "firebase/auth";
 import { useState } from "react";
-import { syncUser } from "../services/auth.functions";
-import { auth, googleProvider } from "../utils/firebase";
+import { syncUser } from "@/services/auth.functions";
+import { auth, googleProvider } from "@/utils/firebase";
 
 // 既にログイン済みならダッシュボードへ飛ばす
 export const Route = createFileRoute("/login")({

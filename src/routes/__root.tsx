@@ -10,7 +10,7 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";
 import "@fontsource/geist-mono/700.css";
-import appCss from "../styles.css?url";
+import appCss from "@/styles.css?url";
 
 export const Route = createRootRoute({
   head: () => ({

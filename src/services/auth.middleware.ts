@@ -1,5 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { getAuthUser } from "./auth.functions";
+import { getAuthUser } from "@/services/auth.functions";
 
 /**
  * 認証ミドルウェア
