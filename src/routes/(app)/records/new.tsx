@@ -89,7 +89,7 @@ function NewRecordComponent() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* URL・OGPセクション */}
-        <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+        <section className="rounded-lg bg-card p-6 shadow-card transition-shadow">
           <div className="space-y-4">
             <div>
               <label
@@ -105,7 +105,7 @@ function NewRecordComponent() {
                 onChange={(e) => setUrl(e.target.value)}
                 onBlur={handleUrlBlur}
                 placeholder="https://example.com"
-                className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="mt-1 w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               />
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 入力後にフォーカスを外すと情報を自動取得します
@@ -125,14 +125,14 @@ function NewRecordComponent() {
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="mt-1 w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               />
             </div>
           </div>
         </section>
 
         {/* アカウント情報（ID/ヒント）セクション */}
-        <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+        <section className="rounded-lg bg-card p-6 shadow-card transition-shadow">
           <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
             <h2 className="text-[18px] font-semibold text-foreground tracking-geist-ui">
               アカウント情報
@@ -150,7 +150,7 @@ function NewRecordComponent() {
             {credentials.map((cred, index) => (
               <div
                 key={cred.loginId}
-                className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
+                className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div>
@@ -169,7 +169,7 @@ function NewRecordComponent() {
                         newCreds[index].label = e.target.value;
                         setCredentials(newCreds);
                       }}
-                      className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                     />
                   </div>
                   <div>
@@ -188,7 +188,7 @@ function NewRecordComponent() {
                         newCreds[index].loginId = e.target.value;
                         setCredentials(newCreds);
                       }}
-                      className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
+                      className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
                     />
                   </div>
                   <div>
@@ -208,7 +208,7 @@ function NewRecordComponent() {
                         setCredentials(newCreds);
                       }}
                       placeholder="例: 愛犬の名前+結婚記念日"
-                      className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                     />
                   </div>
                 </div>
@@ -218,7 +218,7 @@ function NewRecordComponent() {
         </section>
 
         {/* その他設定（公開設定・タグ・メモ） */}
-        <section className="rounded-lg bg-white p-6 shadow-card transition-shadow space-y-6">
+        <section className="rounded-lg bg-card p-6 shadow-card transition-shadow space-y-6">
           <div>
             <label
               htmlFor="visibility-input"
@@ -232,7 +232,7 @@ function NewRecordComponent() {
               onChange={(e) =>
                 setVisibility(e.target.value as "PRIVATE" | "SHARED")
               }
-              className="w-full rounded-md bg-white p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
             >
               <option value="PRIVATE">自分のみ (Private)</option>
               <option value="SHARED">家族と共有 (Shared)</option>
@@ -252,7 +252,7 @@ function NewRecordComponent() {
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="動画, サブスク, 仕事"
-              className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
             />
           </div>
 
@@ -268,7 +268,7 @@ function NewRecordComponent() {
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={3}
-              className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
             />
           </div>
         </section>
@@ -277,7 +277,7 @@ function NewRecordComponent() {
           <button
             type="button"
             onClick={() => navigate({ to: "/dashboard" })}
-            className="rounded-md bg-white px-6 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+            className="rounded-md bg-card px-6 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
           >
             キャンセル
           </button>

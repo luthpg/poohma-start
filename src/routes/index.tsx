@@ -14,7 +14,7 @@ function RouteComponent() {
         </div>
         <Link
           to="/login"
-          className="rounded-md bg-white px-4 py-1.5 text-sm font-medium transition hover:bg-gray-50 shadow-border text-foreground"
+          className="rounded-md bg-card px-4 py-1.5 text-sm font-medium transition hover:bg-accent shadow-border text-foreground"
         >
           ログイン
         </Link>
@@ -34,13 +34,13 @@ function RouteComponent() {
         <div className="mt-12 flex justify-center gap-4">
           <Link
             to="/login"
-            className="rounded-md bg-foreground px-6 py-3 text-[16px] font-medium text-background transition hover:bg-gray-800 shadow-border"
+            className="rounded-md bg-foreground px-6 py-3 text-[16px] font-medium text-background transition hover:bg-foreground/90 shadow-border"
           >
             無料で始める
           </Link>
           <Link
             to="/login"
-            className="rounded-md bg-white px-6 py-3 text-[16px] font-medium text-foreground transition hover:bg-gray-50 shadow-border"
+            className="rounded-md bg-card px-6 py-3 text-[16px] font-medium text-foreground transition hover:bg-accent shadow-border"
           >
             ログイン
           </Link>
@@ -48,7 +48,7 @@ function RouteComponent() {
       </header>
 
       {/* 特徴セクション */}
-      <section className="bg-white px-6 py-24 md:py-32">
+      <section className="bg-card px-6 py-24 md:py-32">
         <div className="mx-auto max-w-5xl">
           <h2 className="mb-16 text-center text-[32px] font-semibold tracking-geist-h1">
             PoohMaが選ばれる理由
@@ -92,7 +92,7 @@ function RouteComponent() {
       </section>
 
       {/* フッター */}
-      <footer className="border-t border-gray-100 py-12 text-center text-sm text-gray-400">
+      <footer className="border-t border-border py-12 text-center text-sm text-muted-foreground">
         &copy; 2026 PoohMa - Family Password Hint Manager
       </footer>
     </div>
@@ -109,8 +109,8 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-lg bg-white p-8 shadow-card transition-shadow hover:shadow-card-hover">
-      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-gray-50 shadow-border text-2xl">
+    <div className="rounded-lg bg-card p-8 shadow-card transition-shadow hover:shadow-card-hover">
+      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-border text-2xl">
         {icon}
       </div>
       <h3 className="mb-3 text-[24px] font-semibold tracking-geist-h2 text-foreground">
@@ -126,7 +126,7 @@ function FeatureCard({
 function Step({ num, text }: { num: string; text: string }) {
   return (
     <div className="flex flex-1 flex-col items-center">
-      <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-[14px] font-medium text-orange-600 shadow-border">
+      <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10 text-[14px] font-medium text-orange-600 shadow-border">
         {num}
       </div>
       <p className="font-medium text-[16px] leading-[1.5] text-foreground">

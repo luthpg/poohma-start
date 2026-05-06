@@ -8,6 +8,7 @@ import {
 import { signOut } from "firebase/auth";
 import { useState } from "react";
 import { z } from "zod";
+import { ModeToggle } from "@/components/mode-toggle";
 import { logout } from "@/services/auth.functions";
 import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
 import { auth } from "@/utils/firebase";
@@ -106,9 +107,10 @@ function RouteComponent() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <ModeToggle />
           <Link
             to="/family"
-            className="rounded-md bg-white px-4 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+            className="rounded-md bg-card px-4 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
           >
             家族管理
           </Link>
@@ -129,11 +131,11 @@ function RouteComponent() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="タグやサービス名で検索..."
-            className="w-full rounded-md bg-white px-4 py-2.5 h-10 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
+            className="w-full rounded-md bg-card px-4 py-2.5 h-10 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
           />
           <button
             type="submit"
-            className="rounded-md bg-foreground px-4 py-2.5 h-10 w-20 text-[14px] font-medium text-background shadow-border hover:bg-gray-800 transition"
+            className="rounded-md bg-foreground px-4 py-2.5 h-10 w-20 text-[14px] font-medium text-background shadow-border hover:bg-foreground/90 transition"
           >
             検索
           </button>
@@ -151,7 +153,7 @@ function RouteComponent() {
                   className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
                     isActive
                       ? "bg-orange-500 text-white shadow-border"
-                      : "bg-white text-gray-600 shadow-border hover:bg-gray-50"
+                      : "bg-card text-muted-foreground shadow-border hover:bg-accent"
                   }`}
                 >
                   #{t}
@@ -164,7 +166,7 @@ function RouteComponent() {
 
       {/* レコード一覧 (Grid Layout) */}
       {records.length === 0 ? (
-        <div className="rounded-lg bg-gray-50/50 p-12 text-center text-muted-foreground shadow-border">
+        <div className="rounded-lg bg-muted/50 p-12 text-center text-muted-foreground shadow-border">
           まだ登録されたサービスはありません。
           <br />
           右上のボタンから追加してみましょう！
@@ -199,10 +201,10 @@ function ServiceCard({
     <Link
       to="/records/$id"
       params={{ id: record.id }}
-      className="group relative flex flex-row md:flex-col overflow-hidden rounded-lg bg-white shadow-card transition-shadow hover:shadow-card-hover block"
+      className="group relative flex flex-row md:flex-col overflow-hidden rounded-lg bg-card shadow-card transition-shadow hover:shadow-card-hover block"
     >
       {/* OGP画像エリア */}
-      <div className="block aspect-square w-28 shrink-0 md:aspect-video md:w-full bg-gray-100 object-cover overflow-hidden">
+      <div className="block aspect-square w-28 shrink-0 md:aspect-video md:w-full bg-muted object-cover overflow-hidden">
         {record.ogpImage ? (
           <img
             src={record.ogpImage}
@@ -210,7 +212,7 @@ function ServiceCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-gray-300 text-2xl md:text-4xl font-bold bg-gray-50 transition-transform duration-300 group-hover:scale-105">
+          <div className="flex h-full items-center justify-center text-muted-foreground/30 text-2xl md:text-4xl font-bold bg-muted transition-transform duration-300 group-hover:scale-105">
             {record.title.slice(0, 1)}
           </div>
         )}
@@ -226,8 +228,8 @@ function ServiceCard({
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] md:text-xs font-medium ${
               record.visibility === "SHARED"
-                ? "bg-[#ebf5ff] text-[#0068d6]"
-                : "bg-gray-100 text-gray-600"
+                ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                : "bg-secondary text-muted-foreground"
             }`}
           >
             {record.visibility === "SHARED" ? "家族共有" : "自分のみ"}
@@ -245,7 +247,7 @@ function ServiceCard({
                 e.stopPropagation();
                 onTagClick(tag.tagName);
               }}
-              className="relative z-10 cursor-pointer rounded-full bg-gray-100 px-2 py-0.5 text-[10px] md:text-[12px] text-gray-600 hover:bg-gray-200 transition"
+              className="relative z-10 cursor-pointer rounded-full bg-secondary px-2 py-0.5 text-[10px] md:text-[12px] text-muted-foreground hover:bg-accent transition"
             >
               #{tag.tagName}
             </button>
@@ -253,7 +255,7 @@ function ServiceCard({
         </div>
 
         {/* 詳細リンク (モバイルでは高さを節約するため非表示) */}
-        <span className="mt-auto hidden w-full rounded-md bg-white py-1.5 text-center text-[14px] font-medium text-foreground shadow-border transition group-hover:bg-gray-50 md:block">
+        <span className="mt-auto hidden w-full rounded-md bg-card py-1.5 text-center text-[14px] font-medium text-foreground shadow-border transition group-hover:bg-accent md:block">
           詳細を見る
         </span>
       </div>

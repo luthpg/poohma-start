@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   createFamilyFn,
@@ -54,16 +54,16 @@ function FamilyComponent() {
         <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
           家族管理
         </h1>
-        <a
-          href="/dashboard"
-          className="rounded-md bg-white px-4 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+        <Link
+          to="/dashboard"
+          className="rounded-md bg-card px-4 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
         >
           ダッシュボードへ
-        </a>
+        </Link>
       </div>
 
       {family ? (
-        <div className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+        <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
           <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
             <h2 className="text-[18px] font-semibold tracking-geist-ui text-foreground">
               {family.name}
@@ -73,14 +73,14 @@ function FamilyComponent() {
             <h3 className="mb-3 text-[14px] font-medium text-foreground">
               招待コード
             </h3>
-            <div className="flex items-center gap-3 rounded-md bg-gray-50/50 p-4 shadow-border-light">
+            <div className="flex items-center gap-3 rounded-md bg-muted/50 p-4 shadow-border-light">
               <code className="flex-1 font-mono text-[16px] font-semibold text-foreground">
                 {family.id}
               </code>
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(family.id)}
-                className="rounded-md bg-white px-4 py-1.5 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+                className="rounded-md bg-card px-4 py-1.5 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
               >
                 コピー
               </button>
@@ -98,7 +98,7 @@ function FamilyComponent() {
               {family.users.map((u) => (
                 <li
                   key={u.id}
-                  className="flex items-center justify-between rounded-md bg-white p-4 shadow-border-light"
+                  className="flex items-center justify-between rounded-md bg-card p-4 shadow-border-light"
                 >
                   <span className="text-[14px] font-medium text-foreground">
                     {u.displayName || "名無し"}
@@ -114,7 +114,7 @@ function FamilyComponent() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {/* 家族を作成 */}
-          <div className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+          <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
             <h2 className="mb-6 text-[18px] font-semibold tracking-geist-ui text-foreground">
               家族グループを作成
             </h2>
@@ -133,7 +133,7 @@ function FamilyComponent() {
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
                   placeholder="例: 田中家"
-                  className="w-full rounded-md bg-white p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                 />
               </div>
               <button
@@ -147,7 +147,7 @@ function FamilyComponent() {
           </div>
 
           {/* 家族に参加 */}
-          <div className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+          <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
             <h2 className="mb-6 text-[18px] font-semibold tracking-geist-ui text-foreground">
               既存の家族に参加
             </h2>
@@ -166,13 +166,13 @@ function FamilyComponent() {
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="w-full font-mono rounded-md bg-white p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  className="w-full font-mono rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-gray-800 disabled:opacity-50"
+                className="w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
               >
                 {isLoading ? "参加中..." : "参加する"}
               </button>

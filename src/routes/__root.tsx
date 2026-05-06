@@ -10,6 +10,8 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";
 import "@fontsource/geist-mono/700.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import appCss from "@/styles.css?url";
 
 export const Route = createRootRoute({
@@ -92,25 +94,28 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ja" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <div className="min-h-screen bg-gray-50 text-gray-900">
-          {children}
-          <TanStackDevtools
-            config={{
-              position: "bottom-right",
-            }}
-            plugins={[
-              {
-                name: "Tanstack Router",
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-            ]}
-          />
-        </div>
+        <ThemeProvider defaultTheme="system" storageKey="theme">
+          <div className="min-h-screen bg-background text-foreground">
+            {children}
+            <TanStackDevtools
+              config={{
+                position: "bottom-right",
+              }}
+              plugins={[
+                {
+                  name: "Tanstack Router",
+                  render: <TanStackRouterDevtoolsPanel />,
+                },
+              ]}
+            />
+            <Toaster />
+          </div>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

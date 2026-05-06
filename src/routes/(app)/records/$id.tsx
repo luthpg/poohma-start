@@ -125,7 +125,7 @@ function RecordDetailComponent() {
           レコードを編集
         </h1>
         <form onSubmit={handleEditSubmit} className="space-y-8">
-          <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+          <section className="rounded-lg bg-card p-6 shadow-card transition-shadow">
             <div className="space-y-4">
               <div>
                 <label
@@ -140,7 +140,7 @@ function RecordDetailComponent() {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onBlur={handleUrlBlur}
-                  className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  className="mt-1 w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                 />
               </div>
               <div>
@@ -156,13 +156,13 @@ function RecordDetailComponent() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  className="mt-1 w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                 />
               </div>
             </div>
           </section>
 
-          <section className="rounded-lg bg-white p-6 shadow-card transition-shadow">
+          <section className="rounded-lg bg-card p-6 shadow-card transition-shadow">
             <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-[18px] font-semibold text-foreground tracking-geist-ui">
                 アカウント情報
@@ -179,7 +179,7 @@ function RecordDetailComponent() {
               {credentials.map((cred, index) => (
                 <div
                   key={cred.loginId}
-                  className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
+                  className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
                 >
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
@@ -198,7 +198,7 @@ function RecordDetailComponent() {
                           newCreds[index].label = e.target.value;
                           setCredentials(newCreds);
                         }}
-                        className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                        className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                       />
                     </div>
                     <div>
@@ -217,7 +217,7 @@ function RecordDetailComponent() {
                           newCreds[index].loginId = e.target.value;
                           setCredentials(newCreds);
                         }}
-                        className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
+                        className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
                       />
                     </div>
                     <div>
@@ -236,7 +236,7 @@ function RecordDetailComponent() {
                           newCreds[index].passwordHint = e.target.value;
                           setCredentials(newCreds);
                         }}
-                        className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                        className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                       />
                     </div>
                   </div>
@@ -245,7 +245,7 @@ function RecordDetailComponent() {
             </div>
           </section>
 
-          <section className="rounded-lg bg-white p-6 shadow-card transition-shadow space-y-6">
+          <section className="rounded-lg bg-card p-6 shadow-card transition-shadow space-y-6">
             <div>
               <label
                 htmlFor="visibility-input"
@@ -259,7 +259,7 @@ function RecordDetailComponent() {
                 onChange={(e) =>
                   setVisibility(e.target.value as "PRIVATE" | "SHARED")
                 }
-                className="w-full rounded-md bg-white p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               >
                 <option value="PRIVATE">自分のみ (Private)</option>
                 <option value="SHARED">家族と共有 (Shared)</option>
@@ -277,7 +277,7 @@ function RecordDetailComponent() {
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               />
             </div>
             <div>
@@ -292,7 +292,7 @@ function RecordDetailComponent() {
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
                 rows={3}
-                className="w-full rounded-md bg-white p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               />
             </div>
           </section>
@@ -301,7 +301,7 @@ function RecordDetailComponent() {
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="rounded-md bg-white px-6 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-gray-50 transition"
+              className="rounded-md bg-card px-6 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
             >
               キャンセル
             </button>
@@ -338,9 +338,9 @@ function RecordDetailComponent() {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-lg bg-white shadow-card">
+      <div className="overflow-hidden rounded-lg bg-card shadow-card">
         {/* OGP ヘッダー */}
-        <div className="relative aspect-video w-full bg-gray-100 md:aspect-[21/9]">
+        <div className="relative aspect-video w-full bg-muted md:aspect-[21/9]">
           {record.ogpImage ? (
             <img
               src={record.ogpImage}
@@ -348,7 +348,7 @@ function RecordDetailComponent() {
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-4xl font-bold text-gray-300">
+            <div className="flex h-full items-center justify-center text-4xl font-bold text-muted-foreground/30">
               {record.title.slice(0, 1)}
             </div>
           )}
@@ -374,8 +374,8 @@ function RecordDetailComponent() {
             <span
               className={`rounded-full px-3 py-1 text-[12px] font-medium tracking-wide uppercase ${
                 record.visibility === "SHARED"
-                  ? "bg-[#ebf5ff] text-[#0068d6]"
-                  : "bg-gray-100 text-gray-600"
+                  ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-secondary text-muted-foreground"
               }`}
             >
               {record.visibility === "SHARED" ? "家族と共有" : "自分のみ"}
@@ -390,7 +390,7 @@ function RecordDetailComponent() {
                   key={tag.id}
                   to="/dashboard"
                   search={{ tag: tag.tagName }}
-                  className="rounded bg-gray-100 px-2 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-200 transition"
+                  className="rounded bg-secondary px-2 py-1 text-[12px] font-medium text-muted-foreground hover:bg-accent transition"
                 >
                   #{tag.tagName}
                 </Link>
@@ -404,7 +404,7 @@ function RecordDetailComponent() {
               アカウント情報
             </h2>
             {record.credentials.length === 0 ? (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 登録された情報はありません。
               </p>
             ) : (
@@ -412,7 +412,7 @@ function RecordDetailComponent() {
                 {record.credentials.map((cred) => (
                   <div
                     key={cred.id}
-                    className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"
+                    className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
                   >
                     {cred.label && (
                       <div className="mb-2 text-xs font-bold text-orange-600">
@@ -421,12 +421,14 @@ function RecordDetailComponent() {
                     )}
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs text-gray-500">ログインID</div>
+                        <div className="text-xs text-muted-foreground">
+                          ログインID
+                        </div>
                         {cred.loginId && (
                           <CopyButton text={cred.loginId} label="ログインID" />
                         )}
                       </div>
-                      <div className="font-mono text-sm text-gray-800 select-all">
+                      <div className="font-mono text-sm text-foreground select-all">
                         {cred.loginId || "-"}
                       </div>
                     </div>
@@ -442,7 +444,7 @@ function RecordDetailComponent() {
                           />
                         )}
                       </div>
-                      <div className="text-sm font-medium text-gray-800 select-all">
+                      <div className="text-sm font-medium text-foreground select-all">
                         {cred.passwordHint || "-"}
                       </div>
                     </div>
@@ -458,7 +460,7 @@ function RecordDetailComponent() {
               <h2 className="mb-4 text-[14px] font-semibold text-foreground tracking-wide uppercase">
                 メモ
               </h2>
-              <div className="rounded-md bg-gray-50/50 p-4 text-[14px] text-muted-foreground whitespace-pre-wrap shadow-border-light">
+              <div className="rounded-md bg-muted/50 p-4 text-[14px] text-muted-foreground whitespace-pre-wrap shadow-border-light">
                 {record.memo}
               </div>
             </div>
@@ -470,14 +472,14 @@ function RecordDetailComponent() {
               <button
                 type="button"
                 onClick={handleDelete}
-                className="rounded-md px-6 py-2 text-[14px] font-medium text-red-600 hover:bg-red-50 transition"
+                className="rounded-md px-6 py-2 text-[14px] font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
               >
                 削除する
               </button>
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background hover:bg-gray-800 transition"
+                className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background hover:bg-foreground/90 transition"
               >
                 編集する
               </button>

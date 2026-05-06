@@ -57,37 +57,37 @@ code {
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --background: oklch(0.12 0.005 285.823);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.141 0.005 285.823);
+  --card: oklch(0.16 0.005 285.823);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.141 0.005 285.823);
+  --popover: oklch(0.16 0.005 285.823);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
+  --secondary: oklch(0.22 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
+  --muted: oklch(0.22 0.006 286.033);
   --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
+  --accent: oklch(0.22 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.274 0.006 286.033);
-  --input: oklch(0.274 0.006 286.033);
+  --border: oklch(0.32 0.006 286.033);
+  --input: oklch(0.32 0.006 286.033);
   --ring: oklch(0.442 0.017 285.786);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: oklch(0.18 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent: oklch(0.22 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.274 0.006 286.033);
+  --sidebar-border: oklch(0.32 0.006 286.033);
   --sidebar-ring: oklch(0.442 0.017 285.786);
 }
 
@@ -142,16 +142,21 @@ code {
 @layer utilities {
   .shadow-border {
     box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.08);
+    @apply dark:shadow-[0px_0px_0px_1px_rgba(255,255,255,0.18)];
   }
   .shadow-card {
     box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.08), 0px 2px 2px rgba(0, 0, 0, 0.04), inset 0px 0px 0px 1px #fafafa;
+    @apply dark:shadow-[0px_0px_0px_1px_rgba(255,255,255,0.18),0px_2px_2px_rgba(0,0,0,0.6),inset_0px_0px_0px_1px_rgba(255,255,255,0.1)];
   }
   .shadow-card-hover {
     box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.08), 0px 4px 4px rgba(0, 0, 0, 0.04), inset 0px 0px 0px 1px #fafafa;
+    @apply dark:shadow-[0px_0px_0px_1px_rgba(255,255,255,0.25),0px_4px_4px_rgba(0,0,0,0.6),inset_0px_0px_0px_1px_rgba(255,255,255,0.1)];
   }
   .shadow-border-light {
     box-shadow: 0px 0px 0px 1px rgb(235, 235, 235);
+    @apply dark:shadow-[0px_0px_0px_1px_rgba(255,255,255,0.15)];
   }
+
   /* Typography utilities for Geist specific kerning */
   .tracking-geist-hero {
     letter-spacing: -2.4px;

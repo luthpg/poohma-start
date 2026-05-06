@@ -44,12 +44,12 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-md space-y-8 rounded-xl bg-card p-8 shadow-lg">
         {/* ロゴエリア */}
         <div className="text-center">
           <h1 className="text-3xl font-bold text-orange-500">PoohMa</h1>
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-muted-foreground">
             家族のパスワード、
             <br />
             ヒントで安全に共有しよう。
@@ -58,7 +58,7 @@ function LoginPage() {
 
         {/* エラー表示 */}
         {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+          <div className="rounded-md bg-red-950/20 p-4 text-sm text-red-400">
             {error}
           </div>
         )}
@@ -68,7 +68,7 @@ function LoginPage() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="flex w-full items-center justify-center rounded-lg bg-white border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          className="flex w-full items-center justify-center rounded-lg bg-card border border-border px-4 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-accent disabled:opacity-50 transition-colors"
         >
           {isLoading ? (
             <span>処理中...</span>
