@@ -589,7 +589,7 @@ function CredentialCard({
     passwordHintIv: string | null;
   };
 }) {
-  const { decryptHint, masterKey, requireUnlock } = usePasscode();
+  const { decryptHint, requireUnlock } = usePasscode();
   const [decryptedHint, setDecryptedHint] = useState<string | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
 
