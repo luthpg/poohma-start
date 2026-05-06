@@ -358,57 +358,60 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
     }
     const familyId = user.familyId;
 
-    return await db.$transaction(async (tx) => {
-      for (const row of rows) {
-        // タグのパース
-        const tags =
-          typeof row.Tags === "string"
-            ? row.Tags.split(",")
-                .map((t: string) => t.trim())
-                .filter(Boolean)
-            : [];
+    return await db.$transaction(
+      async (tx) => {
+        for (const row of rows) {
+          // タグのパース
+          const tags =
+            typeof row.Tags === "string"
+              ? row.Tags.split(",")
+                  .map((t: string) => t.trim())
+                  .filter(Boolean)
+              : [];
 
-        // 認証情報のパース (Label1, LoginID1, PasswordHint1, PasswordHintIv1...)
-        const credentials = [];
-        for (let i = 1; i <= 10; i++) {
-          const label = row[`Label${i}`];
-          const loginId = row[`LoginID${i}`];
-          const passwordHint = row[`PasswordHint${i}`];
-          const passwordHintIv = row[`PasswordHintIv${i}`];
+          // 認証情報のパース (Label1, LoginID1, PasswordHint1, PasswordHintIv1...)
+          const credentials = [];
+          for (let i = 1; i <= 10; i++) {
+            const label = row[`Label${i}`];
+            const loginId = row[`LoginID${i}`];
+            const passwordHint = row[`PasswordHint${i}`];
+            const passwordHintIv = row[`PasswordHintIv${i}`];
 
-          if (label || loginId || passwordHint) {
-            credentials.push({
-              label: String(label || ""),
-              loginId: String(loginId || ""),
-              passwordHint: String(passwordHint || ""),
-              passwordHintIv: passwordHintIv
-                ? String(passwordHintIv)
-                : undefined,
-            });
+            if (label || loginId || passwordHint) {
+              credentials.push({
+                label: String(label || ""),
+                loginId: String(loginId || ""),
+                passwordHint: String(passwordHint || ""),
+                passwordHintIv: passwordHintIv
+                  ? String(passwordHintIv)
+                  : undefined,
+              });
+            }
           }
+
+          // 最小限のバリデーション: タイトルがない場合はスキップ
+          if (!row.Title) continue;
+
+          await tx.serviceRecord.create({
+            data: {
+              userId: user.id,
+              familyId,
+              title: String(row.Title),
+              url: row.URL ? String(row.URL) : null,
+              memo: row.Memo ? String(row.Memo) : null,
+              visibility: row.Visibility === "SHARED" ? "SHARED" : "PRIVATE",
+              credentials: {
+                create: credentials,
+              },
+              tags: {
+                create: tags.map((tagName: string) => ({
+                  tagName,
+                })),
+              },
+            },
+          });
         }
-
-        // 最小限のバリデーション: タイトルがない場合はスキップ
-        if (!row.Title) continue;
-
-        await tx.serviceRecord.create({
-          data: {
-            userId: user.id,
-            familyId,
-            title: String(row.Title),
-            url: row.URL ? String(row.URL) : null,
-            memo: row.Memo ? String(row.Memo) : null,
-            visibility: row.Visibility === "SHARED" ? "SHARED" : "PRIVATE",
-            credentials: {
-              create: credentials,
-            },
-            tags: {
-              create: tags.map((tagName: string) => ({
-                tagName,
-              })),
-            },
-          },
-        });
-      }
-    });
+      },
+      { timeout: 30000 },
+    );
   });
