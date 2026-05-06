@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { type SubmitEvent, useState } from "react";
 import { toast } from "sonner";
+import { usePasscode } from "@/components/PasscodeProvider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,6 +83,57 @@ function RecordDetailComponent() {
       { label: "", loginId: "", passwordHint: "" },
     ]);
   };
+  const { encryptHint, decryptHint, masterKey, requireUnlock } = usePasscode();
+
+  const handleEditStart = async () => {
+    // If there are encrypted credentials, we need to unlock and decrypt them first
+    const hasEncrypted = record.credentials.some(
+      (c) => c.passwordHintIv && c.passwordHint,
+    );
+
+    if (hasEncrypted) {
+      const unlocked = await requireUnlock();
+      if (!unlocked) return; // Cannot edit without unlocking
+
+      const decryptedCreds = await Promise.all(
+        record.credentials.map(async (c) => {
+          if (c.passwordHint && c.passwordHintIv) {
+            try {
+              const plain = await decryptHint(c.passwordHint, c.passwordHintIv);
+              return {
+                label: c.label || "",
+                loginId: c.loginId || "",
+                passwordHint: plain,
+              };
+            } catch (e) {
+              console.error("Decrypt failed during edit start", e);
+              return {
+                label: c.label || "",
+                loginId: c.loginId || "",
+                passwordHint: "",
+              };
+            }
+          }
+          return {
+            label: c.label || "",
+            loginId: c.loginId || "",
+            passwordHint: c.passwordHint || "",
+          };
+        }),
+      );
+      setCredentials(decryptedCreds);
+    } else {
+      setCredentials(
+        record.credentials.map((c) => ({
+          label: c.label || "",
+          loginId: c.loginId || "",
+          passwordHint: c.passwordHint || "",
+        })),
+      );
+    }
+
+    setIsEditing(true);
+  };
 
   const handleEditSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
@@ -91,6 +143,42 @@ function RecordDetailComponent() {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
+
+      // E2EE: パスワードヒントを暗号化
+      const filteredCreds = credentials.filter(
+        (c) => c.label || c.loginId || c.passwordHint,
+      );
+
+      // If we are about to save hints, we must ensure we have the masterKey to encrypt them
+      const hasHintsToEncrypt = filteredCreds.some((c) => c.passwordHint);
+      if (hasHintsToEncrypt && !masterKey) {
+        const unlocked = await requireUnlock();
+        if (!unlocked) {
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const encryptedCredentials = await Promise.all(
+        filteredCreds.map(async (cred) => {
+          if (cred.passwordHint) {
+            const { encrypted, iv } = await encryptHint(cred.passwordHint);
+            return {
+              label: cred.label,
+              loginId: cred.loginId,
+              passwordHint: encrypted,
+              passwordHintIv: iv,
+            };
+          }
+          return {
+            label: cred.label,
+            loginId: cred.loginId,
+            passwordHint: cred.passwordHint,
+            passwordHintIv: undefined,
+          };
+        }),
+      );
+
       await updateRecord({
         data: {
           id: record.id,
@@ -101,9 +189,7 @@ function RecordDetailComponent() {
             ogpDescription: ogpDescription || undefined,
             memo: memo || undefined,
             visibility,
-            credentials: credentials.filter(
-              (c) => c.label || c.loginId || c.passwordHint,
-            ),
+            credentials: encryptedCredentials,
             tags: tagsArray,
           },
         },
@@ -193,7 +279,8 @@ function RecordDetailComponent() {
             <div className="space-y-6">
               {credentials.map((cred, index) => (
                 <div
-                  key={cred.loginId}
+                  // biome-ignore lint/suspicious/noArrayIndexKey: input label
+                  key={index}
                   className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
                 >
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -425,45 +512,7 @@ function RecordDetailComponent() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {record.credentials.map((cred) => (
-                  <div
-                    key={cred.id}
-                    className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
-                  >
-                    {cred.label && (
-                      <div className="mb-2 text-xs font-bold text-orange-600">
-                        {cred.label}
-                      </div>
-                    )}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs text-muted-foreground">
-                          ログインID
-                        </div>
-                        {cred.loginId && (
-                          <CopyButton text={cred.loginId} label="ログインID" />
-                        )}
-                      </div>
-                      <div className="font-mono text-sm text-foreground select-all">
-                        {cred.loginId || "-"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs text-gray-500">
-                          パスワードのヒント
-                        </div>
-                        {cred.passwordHint && (
-                          <CopyButton
-                            text={cred.passwordHint}
-                            label="パスワードのヒント"
-                          />
-                        )}
-                      </div>
-                      <div className="text-sm font-medium text-foreground select-all">
-                        {cred.passwordHint || "-"}
-                      </div>
-                    </div>
-                  </div>
+                  <CredentialCard key={cred.id} cred={cred} />
                 ))}
               </div>
             )}
@@ -515,7 +564,7 @@ function RecordDetailComponent() {
               </AlertDialog>
               <button
                 type="button"
-                onClick={() => setIsEditing(true)}
+                onClick={handleEditStart}
                 className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background hover:bg-foreground/90 transition"
               >
                 編集する
@@ -523,6 +572,97 @@ function RecordDetailComponent() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// E2EE対応: 暗号化されたヒントの復号表示カード
+function CredentialCard({
+  cred,
+}: {
+  cred: {
+    id: string;
+    label: string | null;
+    loginId: string | null;
+    passwordHint: string | null;
+    passwordHintIv: string | null;
+  };
+}) {
+  const { decryptHint, masterKey, requireUnlock } = usePasscode();
+  const [decryptedHint, setDecryptedHint] = useState<string | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+
+  const isEncrypted = !!cred.passwordHintIv && !!cred.passwordHint;
+
+  const handleReveal = async () => {
+    if (!isEncrypted || !cred.passwordHint || !cred.passwordHintIv) return;
+    setIsDecrypting(true);
+    try {
+      const unlocked = await requireUnlock();
+      if (!unlocked) return; // user cancelled or failed
+
+      const plaintext = await decryptHint(
+        cred.passwordHint,
+        cred.passwordHintIv,
+      );
+      setDecryptedHint(plaintext);
+    } catch (error) {
+      console.error("Decrypt failed:", error);
+      toast.error("復号に失敗しました");
+    } finally {
+      setIsDecrypting(false);
+    }
+  };
+
+  const displayedHint = isEncrypted ? decryptedHint : cred.passwordHint;
+
+  return (
+    <div className="rounded-md bg-muted/50 p-5 shadow-border-light relative">
+      {cred.label && (
+        <div className="mb-2 text-xs font-bold text-orange-600">
+          {cred.label}
+        </div>
+      )}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs text-muted-foreground">ログインID</div>
+          {cred.loginId && (
+            <CopyButton text={cred.loginId} label="ログインID" />
+          )}
+        </div>
+        <div className="font-mono text-sm text-foreground select-all">
+          {cred.loginId || "-"}
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs text-gray-500 flex items-center gap-1.5">
+            パスワードのヒント
+            {isEncrypted && (
+              <span className="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                🔒 暗号化
+              </span>
+            )}
+          </div>
+          {displayedHint && (
+            <CopyButton text={displayedHint} label="パスワードのヒント" />
+          )}
+        </div>
+        {isEncrypted && decryptedHint == null ? (
+          <button
+            type="button"
+            onClick={handleReveal}
+            disabled={isDecrypting}
+            className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-orange-50 px-3 py-1.5 text-[13px] font-medium text-orange-600 transition hover:bg-orange-100 disabled:opacity-50 dark:bg-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/30"
+          >
+            {isDecrypting ? "復号中..." : "🔓 ヒントを見る"}
+          </button>
+        ) : (
+          <div className="text-sm font-medium text-foreground select-all">
+            {displayedHint || "-"}
+          </div>
+        )}
       </div>
     </div>
   );

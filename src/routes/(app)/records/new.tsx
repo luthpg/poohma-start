@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { usePasscode } from "@/components/PasscodeProvider";
 import { createRecord, getOgpInfoFn } from "@/services/records.functions";
 
 export const Route = createFileRoute("/(app)/records/new")({
@@ -9,6 +10,7 @@ export const Route = createFileRoute("/(app)/records/new")({
 
 function NewRecordComponent() {
   const navigate = useNavigate();
+  const { encryptHint, masterKey, requireUnlock } = usePasscode();
   const [isLoading, setIsLoading] = useState(false);
 
   // フォーム状態
@@ -59,6 +61,36 @@ function NewRecordComponent() {
         .map((t) => t.trim())
         .filter(Boolean);
 
+      const hasHintsToEncrypt = credentials.some((c) => c.passwordHint);
+      if (hasHintsToEncrypt && !masterKey) {
+        const unlocked = await requireUnlock();
+        if (!unlocked) {
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // E2EE: パスワードヒントを暗号化
+      const encryptedCredentials = await Promise.all(
+        credentials.map(async (cred) => {
+          if (cred.passwordHint) {
+            const { encrypted, iv } = await encryptHint(cred.passwordHint);
+            return {
+              label: cred.label,
+              loginId: cred.loginId,
+              passwordHint: encrypted,
+              passwordHintIv: iv,
+            };
+          }
+          return {
+            label: cred.label,
+            loginId: cred.loginId,
+            passwordHint: cred.passwordHint,
+            passwordHintIv: undefined,
+          };
+        }),
+      );
+
       await createRecord({
         data: {
           title,
@@ -67,7 +99,7 @@ function NewRecordComponent() {
           ogpDescription,
           memo,
           visibility,
-          credentials,
+          credentials: encryptedCredentials,
           tags,
         },
       });
@@ -150,7 +182,8 @@ function NewRecordComponent() {
           <div className="space-y-6">
             {credentials.map((cred, index) => (
               <div
-                key={cred.loginId}
+                // biome-ignore lint/suspicious/noArrayIndexKey: input label
+                key={index}
                 className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

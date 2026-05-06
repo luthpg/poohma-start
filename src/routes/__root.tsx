@@ -10,6 +10,7 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";
 import "@fontsource/geist-mono/700.css";
+import { PasscodeProvider } from "@/components/PasscodeProvider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "@/styles.css?url";
@@ -43,50 +44,46 @@ export const Route = createRootRoute({
 
   errorComponent: (props) => {
     return (
-      <RootDocument>
-        <div className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-          <h1 className="mb-4 text-[32px] font-semibold tracking-geist-hero text-red-500">
-            Error
-          </h1>
-          <p className="mb-8 text-[16px] text-muted-foreground">
-            {props.error instanceof Error
-              ? props.error.message
-              : "予期せぬエラーが発生しました。"}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background shadow-border transition hover:bg-gray-800"
-          >
-            トップページへ戻る
-          </button>
-        </div>
-      </RootDocument>
+      <div className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
+        <h1 className="mb-4 text-[32px] font-semibold tracking-geist-hero text-red-500">
+          Error
+        </h1>
+        <p className="mb-8 text-[16px] text-muted-foreground">
+          {props.error instanceof Error
+            ? props.error.message
+            : "予期せぬエラーが発生しました。"}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = "/";
+          }}
+          className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background shadow-border transition hover:bg-gray-800"
+        >
+          トップページへ戻る
+        </button>
+      </div>
     );
   },
   notFoundComponent: () => {
     return (
-      <RootDocument>
-        <div className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-          <h1 className="mb-4 text-[32px] font-semibold tracking-geist-hero text-foreground">
-            404 Not Found
-          </h1>
-          <p className="mb-8 text-[16px] text-muted-foreground">
-            お探しのページは見つかりませんでした。
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background shadow-border transition hover:bg-gray-800"
-          >
-            トップページへ戻る
-          </button>
-        </div>
-      </RootDocument>
+      <div className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
+        <h1 className="mb-4 text-[32px] font-semibold tracking-geist-hero text-foreground">
+          404 Not Found
+        </h1>
+        <p className="mb-8 text-[16px] text-muted-foreground">
+          お探しのページは見つかりませんでした。
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = "/";
+          }}
+          className="rounded-md bg-foreground px-6 py-2 text-[14px] font-medium text-background shadow-border transition hover:bg-gray-800"
+        >
+          トップページへ戻る
+        </button>
+      </div>
     );
   },
   shellComponent: RootDocument,
@@ -100,21 +97,23 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <ThemeProvider defaultTheme="system" storageKey="theme">
-          <div className="min-h-screen bg-background text-foreground">
-            {children}
-            <TanStackDevtools
-              config={{
-                position: "bottom-right",
-              }}
-              plugins={[
-                {
-                  name: "Tanstack Router",
-                  render: <TanStackRouterDevtoolsPanel />,
-                },
-              ]}
-            />
-            <Toaster />
-          </div>
+          <PasscodeProvider>
+            <div className="min-h-screen bg-background text-foreground">
+              {children}
+              <TanStackDevtools
+                config={{
+                  position: "bottom-right",
+                }}
+                plugins={[
+                  {
+                    name: "Tanstack Router",
+                    render: <TanStackRouterDevtoolsPanel />,
+                  },
+                ]}
+              />
+              <Toaster />
+            </div>
+          </PasscodeProvider>
         </ThemeProvider>
         <Scripts />
       </body>

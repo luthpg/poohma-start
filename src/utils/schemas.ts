@@ -5,6 +5,7 @@ export const CredentialInputSchema = z.object({
   label: z.string().optional(),
   loginId: z.string().optional(),
   passwordHint: z.string().optional(),
+  passwordHintIv: z.string().optional(),
 });
 
 export const RecordInputSchema = z.object({

@@ -13,6 +13,7 @@ import {
 import Papa from "papaparse";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { usePasscode } from "@/components/PasscodeProvider";
 import { useTheme } from "@/components/theme-provider";
 import {
   AlertDialog,
@@ -60,6 +61,7 @@ export function UserMenu({
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { masterKey, requireUnlock, decryptHint, encryptHint } = usePasscode();
 
   const handleLogout = async () => {
     try {
@@ -76,7 +78,50 @@ export function UserMenu({
     setIsExporting(true);
     try {
       const data = await exportRecordsCsv();
-      const csv = Papa.unparse(data);
+
+      // Check if there are any encrypted hints
+      let hasEncryptedHints = false;
+      for (const row of data) {
+        for (let i = 1; i <= 10; i++) {
+          if (row[`PasswordHint${i}`] && row[`PasswordHintIv${i}`]) {
+            hasEncryptedHints = true;
+            break;
+          }
+        }
+        if (hasEncryptedHints) break;
+      }
+
+      if (hasEncryptedHints && !masterKey) {
+        const unlocked = await requireUnlock();
+        if (!unlocked) {
+          setIsExporting(false);
+          return;
+        }
+      }
+
+      // Decrypt hints for export
+      const decryptedData = await Promise.all(
+        data.map(async (row) => {
+          const newRow = { ...row };
+          for (let i = 1; i <= 10; i++) {
+            const hint = newRow[`PasswordHint${i}`];
+            const iv = newRow[`PasswordHintIv${i}`];
+            if (hint && iv) {
+              try {
+                newRow[`PasswordHint${i}`] = await decryptHint(hint, iv);
+              } catch (e) {
+                console.error("Failed to decrypt hint for export", e);
+                newRow[`PasswordHint${i}`] = "";
+              }
+            }
+            // Remove IV from export
+            delete newRow[`PasswordHintIv${i}`];
+          }
+          return newRow;
+        }),
+      );
+
+      const csv = Papa.unparse(decryptedData);
       // Excelの文字化け対策としてBOM (UTF-8) を付与
       const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
       const blob = new Blob([bom, csv], { type: "text/csv;charset=utf-8;" });
@@ -108,12 +153,50 @@ export function UserMenu({
       skipEmptyLines: true,
       complete: async (results) => {
         try {
+          const data = results.data as Record<string, string>[];
+
+          let hasHintsToEncrypt = false;
+          for (const row of data) {
+            for (let i = 1; i <= 10; i++) {
+              if (row[`PasswordHint${i}`]) {
+                hasHintsToEncrypt = true;
+                break;
+              }
+            }
+            if (hasHintsToEncrypt) break;
+          }
+
+          if (hasHintsToEncrypt && !masterKey) {
+            const unlocked = await requireUnlock();
+            if (!unlocked) {
+              setIsImporting(false);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+              return;
+            }
+          }
+
+          const encryptedData = await Promise.all(
+            data.map(async (row) => {
+              const newRow = { ...row };
+              for (let i = 1; i <= 10; i++) {
+                const hint = newRow[`PasswordHint${i}`];
+                if (hint) {
+                  const { encrypted, iv } = await encryptHint(hint);
+                  newRow[`PasswordHint${i}`] = encrypted;
+                  newRow[`PasswordHintIv${i}`] = iv;
+                }
+              }
+              return newRow;
+            }),
+          );
+
           await importRecordsCsv({
-            data: results.data as Record<string, unknown>[],
+            data: encryptedData as Record<string, unknown>[],
           });
           toast.success(`${results.data.length}件のデータをインポートしました`);
           await router.invalidate();
-        } catch (_error) {
+        } catch (error) {
+          console.error(error);
           toast.error("インポートに失敗しました");
         } finally {
           setIsImporting(false);

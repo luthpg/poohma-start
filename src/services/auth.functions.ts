@@ -95,6 +95,15 @@ export const getAuthUser = createServerFn({ method: "GET" }).handler(
           displayName: true,
           photoURL: true,
           familyId: true,
+          family: {
+            select: {
+              id: true,
+              name: true,
+              masterKeyEncrypted: true,
+              masterKeyIv: true,
+              masterKeySalt: true,
+            },
+          },
         },
       });
 

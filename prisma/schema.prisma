@@ -39,6 +39,11 @@ model Family {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // E2EE
+  masterKeyEncrypted String? @map("master_key_encrypted") @db.Text
+  masterKeyIv        String? @map("master_key_iv") @db.Text
+  masterKeySalt      String? @map("master_key_salt") @db.Text
+
   // Relations
   users          User[]
   serviceRecords ServiceRecord[]
@@ -91,9 +96,9 @@ model ServiceRecord {
   user   User   @relation(fields: [userId], references: [id])
 
   // 共有先家族 (検索高速化と権限チェック用)
-  // visibility = SHARED の場合、この familyId が必須となるロジックをアプリ側で実装
-  familyId String? @map("family_id")
-  family   Family? @relation(fields: [familyId], references: [id])
+  // E2EE導入に伴い、家族IDを必須化
+  familyId String  @map("family_id")
+  family   Family @relation(fields: [familyId], references: [id])
 
   // Relations
   credentials AccountCredential[] // ID/ヒントのリスト
@@ -117,7 +122,8 @@ model AccountCredential {
 
   label        String? @db.VarChar(100) // ラベル (例: パパ用)
   loginId      String? @map("login_id") @db.VarChar(255)
-  passwordHint String? @map("password_hint") @db.Text // パスワードではなく「ヒント」
+  passwordHint String? @map("password_hint") @db.Text // パスワードではなく「ヒント」 (暗号化済み)
+  passwordHintIv String? @map("password_hint_iv") @db.Text // 暗号化用IV
 
   // 親レコード (親が消えたら道連れで削除: Cascade)
   recordId String        @map("record_id")

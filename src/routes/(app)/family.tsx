@@ -2,6 +2,12 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  deriveKeyFromPasscode,
+  generateMasterKey,
+  generateSalt,
+  wrapMasterKey,
+} from "@/lib/crypto";
+import {
   createFamilyFn,
   getFamilyMembersFn,
   joinFamilyFn,
@@ -20,14 +26,40 @@ function FamilyComponent() {
   const router = useRouter();
 
   const [createName, setCreateName] = useState("");
+  const [createPasscode, setCreatePasscode] = useState("");
+  const [createPasscodeConfirm, setCreatePasscodeConfirm] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (createPasscode.length < 4) {
+      toast.error("パスコードは4文字以上にしてください");
+      return;
+    }
+    if (createPasscode !== createPasscodeConfirm) {
+      toast.error("パスコードが一致しません");
+      return;
+    }
     setIsLoading(true);
     try {
-      await createFamilyFn({ data: { name: createName } });
+      // E2EE: マスターキーの生成とラップ
+      const salt = generateSalt();
+      const passcodeKey = await deriveKeyFromPasscode(createPasscode, salt);
+      const masterKey = await generateMasterKey();
+      const wrapped = await wrapMasterKey(masterKey, passcodeKey);
+
+      await createFamilyFn({
+        data: {
+          name: createName,
+          masterKeyEncrypted: wrapped.encrypted,
+          masterKeyIv: wrapped.iv,
+          masterKeySalt: salt,
+        },
+      });
+      toast.success(
+        "家族グループを作成しました。再ログインしてパスコードを入力してください。",
+      );
       await router.invalidate();
     } catch {
       toast.error("作成に失敗しました");
@@ -134,6 +166,45 @@ function FamilyComponent() {
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
                   placeholder="例: 田中家"
+                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="family-passcode-input"
+                  className="mb-1.5 block text-[14px] font-medium text-foreground"
+                >
+                  パスコード <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  id="family-passcode-input"
+                  required
+                  minLength={4}
+                  value={createPasscode}
+                  onChange={(e) => setCreatePasscode(e.target.value)}
+                  placeholder="4文字以上"
+                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                />
+                <p className="mt-1.5 text-[12px] text-muted-foreground">
+                  暗号化に使用します。忘れるとヒントを復元できません。
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="family-passcode-confirm-input"
+                  className="mb-1.5 block text-[14px] font-medium text-foreground"
+                >
+                  パスコード（確認）
+                </label>
+                <input
+                  type="password"
+                  id="family-passcode-confirm-input"
+                  required
+                  minLength={4}
+                  value={createPasscodeConfirm}
+                  onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
+                  placeholder="もう一度入力"
                   className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                 />
               </div>

@@ -43,11 +43,13 @@ export const getRecords = createServerFn({ method: "GET" })
         {
           OR: [
             { userId: user.id },
-            {
-              visibility: Visibility.SHARED,
-              familyId: user.familyId,
-            },
-          ],
+            user.familyId
+              ? {
+                  visibility: Visibility.SHARED,
+                  familyId: user.familyId,
+                }
+              : undefined,
+          ].filter(Boolean) as Prisma.ServiceRecordWhereInput[],
         },
         searchFilter,
         tagFilter,
@@ -106,12 +108,19 @@ export const createRecord = createServerFn({ method: "POST" })
   .handler(async ({ data, context: { user } }) => {
     const inputData = RecordInputSchema.parse(data);
 
+    if (!user.familyId) {
+      throw new Error(
+        "家族グループに所属していません。先に家族を作成または参加してください。",
+      );
+    }
+    const familyId = user.familyId;
+
     // トランザクション実行
     return await db.$transaction(async (tx) => {
       return await tx.serviceRecord.create({
         data: {
           userId: user.id,
-          familyId: user.familyId, // 作成時点の家族IDを記録
+          familyId, // 作成時点の家族IDを記録
           title: inputData.title,
           url: inputData.url,
           ogpImage: inputData.ogpImage,
@@ -124,6 +133,7 @@ export const createRecord = createServerFn({ method: "POST" })
               label: cred.label,
               loginId: cred.loginId,
               passwordHint: cred.passwordHint,
+              passwordHintIv: cred.passwordHintIv,
             })),
           },
           tags: {
@@ -206,6 +216,7 @@ export const updateRecord = createServerFn({ method: "POST" })
               label: cred.label,
               loginId: cred.loginId,
               passwordHint: cred.passwordHint,
+              passwordHintIv: cred.passwordHintIv,
             })),
           },
           tags: {
@@ -328,6 +339,7 @@ export const exportRecordsCsv = createServerFn({ method: "GET" })
         row[`Label${idx}`] = cred?.label || "";
         row[`LoginID${idx}`] = cred?.loginId || "";
         row[`PasswordHint${idx}`] = cred?.passwordHint || "";
+        row[`PasswordHintIv${idx}`] = cred?.passwordHintIv || "";
       }
 
       return row;
@@ -341,6 +353,11 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator((data: Record<string, unknown>[]) => data)
   .handler(async ({ data: rows, context: { user } }) => {
+    if (!user.familyId) {
+      throw new Error("家族グループに所属していません。");
+    }
+    const familyId = user.familyId;
+
     return await db.$transaction(async (tx) => {
       for (const row of rows) {
         // タグのパース
@@ -351,18 +368,22 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
                 .filter(Boolean)
             : [];
 
-        // 認証情報のパース (Label1, LoginID1, PasswordHint1...)
+        // 認証情報のパース (Label1, LoginID1, PasswordHint1, PasswordHintIv1...)
         const credentials = [];
         for (let i = 1; i <= 10; i++) {
           const label = row[`Label${i}`];
           const loginId = row[`LoginID${i}`];
           const passwordHint = row[`PasswordHint${i}`];
+          const passwordHintIv = row[`PasswordHintIv${i}`];
 
           if (label || loginId || passwordHint) {
             credentials.push({
               label: String(label || ""),
               loginId: String(loginId || ""),
               passwordHint: String(passwordHint || ""),
+              passwordHintIv: passwordHintIv
+                ? String(passwordHintIv)
+                : undefined,
             });
           }
         }
@@ -373,7 +394,7 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
         await tx.serviceRecord.create({
           data: {
             userId: user.id,
-            familyId: user.familyId,
+            familyId,
             title: String(row.Title),
             url: row.URL ? String(row.URL) : null,
             memo: row.Memo ? String(row.Memo) : null,

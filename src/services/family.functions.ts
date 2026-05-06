@@ -20,29 +20,46 @@ export const getFamilyMembersFn = createServerFn({ method: "GET" })
 
 export const createFamilyFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .inputValidator((data: { name: string }) => data)
-  .handler(async ({ data: { name }, context: { user } }) => {
-    if (user.familyId) throw new Error("Already in a family");
+  .inputValidator(
+    (data: {
+      name: string;
+      masterKeyEncrypted: string;
+      masterKeyIv: string;
+      masterKeySalt: string;
+    }) => data,
+  )
+  .handler(
+    async ({
+      data: { name, masterKeyEncrypted, masterKeyIv, masterKeySalt },
+      context: { user },
+    }) => {
+      if (user.familyId) throw new Error("Already in a family");
 
-    // トランザクションで家族作成とユーザー更新を同時に行う
-    const family = await db.$transaction(async (tx) => {
-      const newFamily = await tx.family.create({
-        data: { name },
+      // トランザクションで家族作成とユーザー更新を同時に行う
+      const family = await db.$transaction(async (tx) => {
+        const newFamily = await tx.family.create({
+          data: {
+            name,
+            masterKeyEncrypted,
+            masterKeyIv,
+            masterKeySalt,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: { familyId: newFamily.id },
+        });
+
+        return newFamily;
       });
 
-      await tx.user.update({
-        where: { id: user.id },
-        data: { familyId: newFamily.id },
-      });
+      // Firebase Custom Claims に family_id をセット
+      await adminAuth().setCustomUserClaims(user.id, { family_id: family.id });
 
-      return newFamily;
-    });
-
-    // Firebase Custom Claims に family_id をセット
-    await adminAuth().setCustomUserClaims(user.id, { family_id: family.id });
-
-    return family;
-  });
+      return family;
+    },
+  );
 
 export const joinFamilyFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
