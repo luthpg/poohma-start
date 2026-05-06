@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
-import { Visibility } from "@/../generated/prisma/client"; // Prismaが生成したEnum
+import { type Prisma, Visibility } from "@/../generated/prisma/client"; // Prismaが生成したEnum
 import { RecordInputSchema } from "@/utils/schemas";
 import { authMiddleware } from "./auth.middleware";
 import { db } from "./db.server";
@@ -38,29 +38,27 @@ export const getRecords = createServerFn({ method: "GET" })
         }
       : {};
 
-    const whereCondition = {
+    const whereCondition: Prisma.ServiceRecordWhereInput = {
       AND: [
         {
           OR: [
-            { userId: user.id }, // 自分の
+            { userId: user.id },
             {
-              visibility: Visibility.SHARED, // 共有設定で
-              familyId: user.familyId, // 同じ家族の
+              visibility: Visibility.SHARED,
+              familyId: user.familyId,
             },
           ],
         },
         searchFilter,
         tagFilter,
-      ],
+      ].filter(Boolean) as Prisma.ServiceRecordWhereInput[],
     };
 
     const records = await db.serviceRecord.findMany({
-      // biome-ignore lint/suspicious/noTsIgnore: Prismaの型の問題でエラーが出る場合がある
-      // @ts-ignore Prismaの型の問題でエラーが出る場合がある
       where: whereCondition,
       include: {
         tags: true,
-        user: { select: { displayName: true } }, // 誰が作ったか表示するため
+        user: { select: { displayName: true } },
       },
       orderBy: { updatedAt: "desc" },
     });

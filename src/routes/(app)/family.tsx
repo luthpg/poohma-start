@@ -95,7 +95,7 @@ function FamilyComponent() {
               メンバー一覧
             </h3>
             <ul className="space-y-3">
-              {family.users.map((u: any) => (
+              {family.users.map((u) => (
                 <li
                   key={u.id}
                   className="flex items-center justify-between rounded-md bg-white p-4 shadow-border-light"

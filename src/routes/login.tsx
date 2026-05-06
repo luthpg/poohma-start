@@ -20,6 +20,11 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
+    if (!auth || !googleProvider) {
+      setError("Firebaseの初期化に失敗しました。");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 

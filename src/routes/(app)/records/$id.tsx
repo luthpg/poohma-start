@@ -385,7 +385,7 @@ function RecordDetailComponent() {
           {/* タグ */}
           {record.tags.length > 0 && (
             <div className="mb-8 flex flex-wrap gap-2">
-              {record.tags.map((tag: any) => (
+              {record.tags.map((tag) => (
                 <Link
                   key={tag.id}
                   to="/dashboard"

@@ -1,5 +1,5 @@
-import { getApps, initializeApp } from "firebase/app";
-import { GoogleAuthProvider, getAuth } from "firebase/auth";
+import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
+import { type Auth, GoogleAuthProvider, getAuth } from "firebase/auth";
 import { env } from "../env";
 
 const firebaseConfig = {
@@ -11,9 +11,9 @@ const firebaseConfig = {
 // ブラウザ環境でのみ初期化を行う（SSR対策）
 const isBrowser = typeof window !== "undefined";
 
-let app: any;
-let auth: any;
-let googleProvider: any;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let googleProvider: GoogleAuthProvider | null = null;
 
 if (isBrowser) {
   app = getApps()?.length === 0 ? initializeApp(firebaseConfig) : getApps()[0];

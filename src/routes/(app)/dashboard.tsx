@@ -184,12 +184,15 @@ function RouteComponent() {
   );
 }
 
+type Record = Awaited<ReturnType<typeof getRecords>>[number];
+type Tag = { id: string; tagName: string };
+
 // カードコンポーネント (UIパーツ)
 function ServiceCard({
   record,
   onTagClick,
 }: {
-  record: any;
+  record: Record & { tags: Tag[] };
   onTagClick: (tag: string) => void;
 }) {
   return (
@@ -233,7 +236,7 @@ function ServiceCard({
 
         {/* タグ表示 */}
         <div className="mb-0 md:mb-4 flex flex-wrap gap-1">
-          {record.tags.map((tag: any) => (
+          {record.tags.map((tag) => (
             <button
               key={tag.id}
               type="button"
