@@ -283,3 +283,111 @@ export const getAvailableTagsFn = createServerFn({ method: "GET" })
 
     return tags.map((t) => t.tagName);
   });
+
+/**
+ * 全レコードをエクスポート用の形式で取得
+ */
+export const exportRecordsCsv = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context: { user } }) => {
+    const records = await db.serviceRecord.findMany({
+      where: {
+        OR: [
+          { userId: user.id },
+          {
+            visibility: Visibility.SHARED,
+            familyId: user.familyId || "no-family",
+          },
+        ],
+      },
+      include: {
+        credentials: {
+          orderBy: { createdAt: "asc" },
+        },
+        tags: {
+          orderBy: { tagName: "asc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // CSV用のフラットな構造に変換
+    return records.map((r) => {
+      const row: Record<string, string> = {
+        Title: r.title,
+        URL: r.url || "",
+        Memo: r.memo || "",
+        Visibility: r.visibility,
+        Tags: r.tags.map((t) => t.tagName).join(","),
+      };
+
+      // 最大10個までの認証情報を列として展開
+      for (let i = 0; i < 10; i++) {
+        const cred = r.credentials[i];
+        const idx = i + 1;
+        row[`Label${idx}`] = cred?.label || "";
+        row[`LoginID${idx}`] = cred?.loginId || "";
+        row[`PasswordHint${idx}`] = cred?.passwordHint || "";
+      }
+
+      return row;
+    });
+  });
+
+/**
+ * CSVデータからレコードを一括登録
+ */
+export const importRecordsCsv = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .inputValidator((data: Record<string, unknown>[]) => data)
+  .handler(async ({ data: rows, context: { user } }) => {
+    return await db.$transaction(async (tx) => {
+      for (const row of rows) {
+        // タグのパース
+        const tags =
+          typeof row.Tags === "string"
+            ? row.Tags.split(",")
+                .map((t: string) => t.trim())
+                .filter(Boolean)
+            : [];
+
+        // 認証情報のパース (Label1, LoginID1, PasswordHint1...)
+        const credentials = [];
+        for (let i = 1; i <= 10; i++) {
+          const label = row[`Label${i}`];
+          const loginId = row[`LoginID${i}`];
+          const passwordHint = row[`PasswordHint${i}`];
+
+          if (label || loginId || passwordHint) {
+            credentials.push({
+              label: String(label || ""),
+              loginId: String(loginId || ""),
+              passwordHint: String(passwordHint || ""),
+            });
+          }
+        }
+
+        // 最小限のバリデーション: タイトルがない場合はスキップ
+        if (!row.Title) continue;
+
+        await tx.serviceRecord.create({
+          data: {
+            userId: user.id,
+            familyId: user.familyId,
+            title: String(row.Title),
+            url: row.URL ? String(row.URL) : null,
+            memo: row.Memo ? String(row.Memo) : null,
+            visibility: row.Visibility === "SHARED" ? "SHARED" : "PRIVATE",
+            credentials: {
+              create: credentials,
+            },
+            tags: {
+              create: tags.map((tagName: string) => ({
+                tagName,
+              })),
+            },
+          },
+        });
+      }
+    });
+  });

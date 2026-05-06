@@ -2,16 +2,13 @@ import {
   createFileRoute,
   getRouteApi,
   Link,
+  redirect,
   useNavigate,
-  useRouter,
 } from "@tanstack/react-router";
-import { signOut } from "firebase/auth";
 import { useState } from "react";
 import { z } from "zod";
-import { ModeToggle } from "@/components/mode-toggle";
-import { logout } from "@/services/auth.functions";
+import { UserMenu } from "@/components/user-menu";
 import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
-import { auth } from "@/utils/firebase";
 
 const searchSchema = z.object({
   q: z.string().optional(),
@@ -26,12 +23,15 @@ export const Route = createFileRoute("/(app)/dashboard")({
       getRecords({ data: { q, tag } }),
       getAvailableTagsFn(),
     ]);
-    return {
-      records,
-      availableTags,
-      user: context.user,
-      searchParams: { q, tag },
-    };
+    if (context.user) {
+      return {
+        records,
+        availableTags,
+        user: context.user,
+        searchParams: { q, tag },
+      };
+    }
+    throw redirect({ to: "/login" });
   },
   component: RouteComponent,
 });
@@ -42,10 +42,8 @@ function RouteComponent() {
   const { records, availableTags, user, searchParams } =
     routeApi.useLoaderData();
   const navigate = useNavigate({ from: "/dashboard" });
-  const router = useRouter();
 
   const [searchInput, setSearchInput] = useState(searchParams.q || "");
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,24 +64,6 @@ function RouteComponent() {
     });
   };
 
-  const handleLogout = async () => {
-    if (!window.confirm("ログアウトしますか？")) return;
-    setIsLoggingOut(true);
-    try {
-      if (auth) {
-        await signOut(auth);
-      }
-      await logout();
-      await router.invalidate();
-      await router.navigate({ to: "/" });
-    } catch (error) {
-      console.error("Logout failed:", error);
-      alert("ログアウトに失敗しました");
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
   return (
     <div className="mx-auto max-w-5xl p-6">
       {/* ヘッダーエリア */}
@@ -92,34 +72,15 @@ function RouteComponent() {
           <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
             Pooh<span className="text-orange-500">Ma</span>
           </h1>
-          <div className="mt-1 flex items-center gap-2">
-            <p className="text-[14px] text-muted-foreground">
-              ようこそ、{user?.displayName || "ゲスト"}さん
-            </p>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="text-[12px] text-red-500 hover:text-red-700 underline disabled:opacity-50"
-            >
-              {isLoggingOut ? "処理中..." : "ログアウト"}
-            </button>
-          </div>
         </div>
         <div className="flex items-center gap-3">
-          <ModeToggle />
-          <Link
-            to="/family"
-            className="rounded-md bg-card px-4 py-2 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
-          >
-            家族管理
-          </Link>
           <Link
             to="/records/new"
             className="rounded-md bg-orange-500 px-4 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 transition"
           >
             + 新規登録
           </Link>
+          <UserMenu user={user} />
         </div>
       </header>
 
