@@ -1,10 +1,11 @@
 import {
   createFileRoute,
+  getRouteApi,
   Link,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { type SubmitEvent, useState } from "react";
 import {
   deleteRecord,
   getOgpInfoFn,
@@ -21,8 +22,10 @@ export const Route = createFileRoute("/(app)/records/$id")({
   component: RecordDetailComponent,
 });
 
+const routeApi = getRouteApi("/(app)/records/$id");
+
 function RecordDetailComponent() {
-  const { record } = Route.useLoaderData();
+  const { record } = routeApi.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();
 
@@ -34,14 +37,14 @@ function RecordDetailComponent() {
     record.ogpDescription || "",
   );
   const [credentials, setCredentials] = useState(
-    record.credentials.map((c: any) => ({
+    record.credentials.map((c) => ({
       label: c.label || "",
       loginId: c.loginId || "",
       passwordHint: c.passwordHint || "",
     })),
   );
   const [tagsInput, setTagsInput] = useState(
-    record.tags.map((t: any) => t.tagName).join(", "),
+    record.tags.map((t) => t.tagName).join(", "),
   );
   const [memo, setMemo] = useState(record.memo || "");
   const [visibility, setVisibility] = useState<"PRIVATE" | "SHARED">(
@@ -68,7 +71,7 @@ function RecordDetailComponent() {
     ]);
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
@@ -406,7 +409,7 @@ function RecordDetailComponent() {
               </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
-                {record.credentials.map((cred: any) => (
+                {record.credentials.map((cred) => (
                   <div
                     key={cred.id}
                     className="rounded-md bg-gray-50/50 p-5 shadow-border-light relative"

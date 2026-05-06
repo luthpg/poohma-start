@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { Visibility } from "@/../generated/prisma/client"; // Prismaが生成したEnum
 import { RecordInputSchema } from "@/utils/schemas";
-import { getAuthUser } from "./auth.functions";
+import { authMiddleware } from "./auth.middleware";
 import { db } from "./db.server";
 
 /**
@@ -10,10 +10,9 @@ import { db } from "./db.server";
  * 条件: 自分が作成したもの OR (共有設定 AND 同じ家族)
  */
 export const getRecords = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
   .inputValidator((data?: { tag?: string; q?: string }) => data)
-  .handler(async ({ data }) => {
-    const user = await getAuthUser();
-    if (!user) throw new Error("Unauthorized");
+  .handler(async ({ data, context: { user } }) => {
     const { tag, q } = data || {};
 
     // 検索条件の構築
@@ -73,11 +72,9 @@ export const getRecords = createServerFn({ method: "GET" })
  * レコード詳細取得
  */
 export const getRecordDetail = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data: { id } }) => {
-    const user = await getAuthUser();
-    if (!user) throw new Error("Unauthorized");
-
+  .handler(async ({ data: { id }, context: { user } }) => {
     const record = await db.serviceRecord.findUnique({
       where: { id },
       include: {
@@ -106,10 +103,9 @@ export const getRecordDetail = createServerFn({ method: "GET" })
  * トランザクションを使用して、レコード本体・認証情報・タグを一括保存
  */
 export const createRecord = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .inputValidator((data: z.infer<typeof RecordInputSchema>) => data)
-  .handler(async ({ data }) => {
-    const user = await getAuthUser();
-    if (!user) throw new Error("Unauthorized");
+  .handler(async ({ data, context: { user } }) => {
     const inputData = RecordInputSchema.parse(data);
 
     // トランザクション実行
@@ -147,11 +143,9 @@ export const createRecord = createServerFn({ method: "POST" })
  * 権限チェック付き
  */
 export const deleteRecord = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data: { id } }) => {
-    const user = await getAuthUser();
-    if (!user) throw new Error("Unauthorized");
-
+  .handler(async ({ data: { id }, context: { user } }) => {
     // 削除前の権限確認
     const record = await db.serviceRecord.findUnique({
       where: { id },
@@ -178,13 +172,11 @@ export const deleteRecord = createServerFn({ method: "POST" })
  * レコード更新
  */
 export const updateRecord = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .inputValidator(
     (data: { id: string; data: z.infer<typeof RecordInputSchema> }) => data,
   )
-  .handler(async ({ data: { id, data: inputData } }) => {
-    const user = await getAuthUser();
-    if (!user) throw new Error("Unauthorized");
-
+  .handler(async ({ data: { id, data: inputData }, context: { user } }) => {
     const record = await db.serviceRecord.findUnique({ where: { id } });
     if (!record) throw new Error("Not found");
 
@@ -233,6 +225,7 @@ export const updateRecord = createServerFn({ method: "POST" })
  * 指定されたURLからHTMLを取得し、タイトルやOGP画像を抽出します
  */
 export const getOgpInfoFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
   .inputValidator((data: { url: string }) => data)
   .handler(async ({ data: { url } }) => {
     try {
@@ -270,11 +263,9 @@ export const getOgpInfoFn = createServerFn({ method: "GET" })
 /**
  * 利用可能な全タグ一覧の取得
  */
-export const getAvailableTagsFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const user = await getAuthUser();
-    if (!user) return [];
-
+export const getAvailableTagsFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context: { user } }) => {
     const tags = await db.recordTag.findMany({
       where: {
         record: {
@@ -293,5 +284,4 @@ export const getAvailableTagsFn = createServerFn({ method: "GET" }).handler(
     });
 
     return tags.map((t) => t.tagName);
-  },
-);
+  });
