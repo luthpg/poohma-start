@@ -82,6 +82,7 @@ function RecordDetailComponent() {
   const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [title, setTitle] = useState(record.title);
   const [url, setUrl] = useState(record.url || "");
   const [ogpImage, setOgpImage] = useState(record.ogpImage || "");
@@ -472,14 +473,16 @@ function RecordDetailComponent() {
       <div className="mb-6">
         <button
           type="button"
+          disabled={isNavigating}
           onClick={() => {
+            setIsNavigating(true);
             if (window.history.length > 2) {
               window.history.back();
             } else {
               router.navigate({ to: "/dashboard" });
             }
           }}
-          className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
         >
           <span className="text-[16px] leading-none mb-0.5">←</span>{" "}
           ダッシュボードに戻る
