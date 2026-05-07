@@ -1,6 +1,9 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   deriveKeyFromPasscode,
   generateMasterKey,
@@ -18,8 +21,52 @@ export const Route = createFileRoute("/(app)/family")({
     const family = await getFamilyMembersFn();
     return { family };
   },
+  pendingComponent: FamilyPending,
   component: FamilyComponent,
 });
+
+function FamilyPending() {
+  return (
+    <div className="mx-auto max-w-3xl p-6">
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
+          家族管理
+        </h1>
+        <Skeleton className="h-[36px] w-[120px] rounded-md" />
+      </div>
+
+      <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
+        <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+          <Skeleton className="h-6 w-32 rounded-md" />
+        </div>
+        <div className="mb-8">
+          <Skeleton className="mb-3 h-5 w-24 rounded-md" />
+          <div className="flex items-center gap-3 rounded-md bg-muted/50 p-4 shadow-border-light">
+            <Skeleton className="h-6 w-full max-w-[300px] rounded-md" />
+            <Skeleton className="h-[32px] w-[60px] rounded-md" />
+          </div>
+          <Skeleton className="mt-2 h-4 w-64 rounded-md" />
+        </div>
+
+        <div>
+          <Skeleton className="mb-4 h-5 w-24 rounded-md" />
+          <ul className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton component uses index as key
+                key={i}
+                className="flex items-center justify-between rounded-md bg-card p-4 shadow-border-light border border-border/50"
+              >
+                <Skeleton className="h-5 w-24 rounded-md" />
+                <Skeleton className="h-4 w-32 rounded-md" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function FamilyComponent() {
   const { family } = Route.useLoaderData();
@@ -30,6 +77,9 @@ function FamilyComponent() {
   const [createPasscodeConfirm, setCreatePasscodeConfirm] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showCreatePasscode, setShowCreatePasscode] = useState(false);
+  const [showCreatePasscodeConfirm, setShowCreatePasscodeConfirm] =
+    useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +107,7 @@ function FamilyComponent() {
           masterKeySalt: salt,
         },
       });
-      toast.success(
-        "家族グループを作成しました。再ログインしてパスコードを入力してください。",
-      );
+      toast.success("家族グループを作成しました。");
       await router.invalidate();
     } catch {
       toast.error("作成に失敗しました");
@@ -176,16 +224,29 @@ function FamilyComponent() {
                 >
                   パスコード <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="password"
-                  id="family-passcode-input"
-                  required
-                  minLength={4}
-                  value={createPasscode}
-                  onChange={(e) => setCreatePasscode(e.target.value)}
-                  placeholder="4文字以上"
-                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
+                <div className="relative">
+                  <input
+                    type={showCreatePasscode ? "text" : "password"}
+                    id="family-passcode-input"
+                    required
+                    minLength={4}
+                    value={createPasscode}
+                    onChange={(e) => setCreatePasscode(e.target.value)}
+                    placeholder="4文字以上"
+                    className="w-full rounded-md bg-card p-2.5 text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePasscode(!showCreatePasscode)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showCreatePasscode ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="mt-1.5 text-[12px] text-muted-foreground">
                   暗号化に使用します。忘れるとヒントを復元できません。
                 </p>
@@ -197,23 +258,45 @@ function FamilyComponent() {
                 >
                   パスコード（確認）
                 </label>
-                <input
-                  type="password"
-                  id="family-passcode-confirm-input"
-                  required
-                  minLength={4}
-                  value={createPasscodeConfirm}
-                  onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
-                  placeholder="もう一度入力"
-                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
+                <div className="relative">
+                  <input
+                    type={showCreatePasscodeConfirm ? "text" : "password"}
+                    id="family-passcode-confirm-input"
+                    required
+                    minLength={4}
+                    value={createPasscodeConfirm}
+                    onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
+                    placeholder="もう一度入力"
+                    className="w-full rounded-md bg-card p-2.5 text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowCreatePasscodeConfirm(!showCreatePasscodeConfirm)
+                    }
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showCreatePasscodeConfirm ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-md bg-orange-500 px-4 py-2.5 text-[14px] font-medium text-white shadow-border transition hover:bg-orange-600 disabled:opacity-50"
+                className="flex items-center justify-center w-full rounded-md bg-orange-500 px-4 py-2.5 text-[14px] font-medium text-white shadow-border transition hover:bg-orange-600 disabled:opacity-50"
               >
-                {isLoading ? "作成中..." : "作成する"}
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    作成中...
+                  </>
+                ) : (
+                  "作成する"
+                )}
               </button>
             </form>
           </div>
@@ -244,9 +327,16 @@ function FamilyComponent() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
+                className="flex items-center justify-center w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
               >
-                {isLoading ? "参加中..." : "参加する"}
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    参加中...
+                  </>
+                ) : (
+                  "参加する"
+                )}
               </button>
             </form>
           </div>

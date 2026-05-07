@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { signInWithPopup } from "firebase/auth";
 import { useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { syncUser } from "@/services/auth.functions";
 import { auth, googleProvider } from "@/utils/firebase";
 
@@ -71,7 +72,10 @@ function LoginPage() {
           className="flex w-full items-center justify-center rounded-lg bg-card border border-border px-4 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-accent disabled:opacity-50 transition-colors"
         >
           {isLoading ? (
-            <span>処理中...</span>
+            <>
+              <Spinner className="mr-2" />
+              処理中...
+            </>
           ) : (
             <>
               {/* Google G Logo SVG */}
