@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { usePasscode } from "@/components/PasscodeProvider";
+import { Spinner } from "@/components/ui/spinner";
 import { createRecord, getOgpInfoFn } from "@/services/records.functions";
 
 export const Route = createFileRoute("/(app)/records/new")({
@@ -318,9 +319,16 @@ function NewRecordComponent() {
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-md bg-orange-500 px-6 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 disabled:opacity-50 transition"
+            className="flex items-center rounded-md bg-orange-500 px-6 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 disabled:opacity-50 transition"
           >
-            {isLoading ? "保存中..." : "登録する"}
+            {isLoading ? (
+              <>
+                <Spinner className="mr-2 h-4 w-4" />
+                保存中...
+              </>
+            ) : (
+              "登録する"
+            )}
           </button>
         </div>
       </form>

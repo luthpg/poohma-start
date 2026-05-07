@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   deriveKeyFromPasscode,
   generateMasterKey,
@@ -18,8 +20,52 @@ export const Route = createFileRoute("/(app)/family")({
     const family = await getFamilyMembersFn();
     return { family };
   },
+  pendingComponent: FamilyPending,
   component: FamilyComponent,
 });
+
+function FamilyPending() {
+  return (
+    <div className="mx-auto max-w-3xl p-6">
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
+          家族管理
+        </h1>
+        <Skeleton className="h-[36px] w-[120px] rounded-md" />
+      </div>
+
+      <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
+        <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+          <Skeleton className="h-6 w-32 rounded-md" />
+        </div>
+        <div className="mb-8">
+          <Skeleton className="mb-3 h-5 w-24 rounded-md" />
+          <div className="flex items-center gap-3 rounded-md bg-muted/50 p-4 shadow-border-light">
+            <Skeleton className="h-6 w-full max-w-[300px] rounded-md" />
+            <Skeleton className="h-[32px] w-[60px] rounded-md" />
+          </div>
+          <Skeleton className="mt-2 h-4 w-64 rounded-md" />
+        </div>
+
+        <div>
+          <Skeleton className="mb-4 h-5 w-24 rounded-md" />
+          <ul className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <li
+                // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton component uses index as key
+                key={i}
+                className="flex items-center justify-between rounded-md bg-card p-4 shadow-border-light border border-border/50"
+              >
+                <Skeleton className="h-5 w-24 rounded-md" />
+                <Skeleton className="h-4 w-32 rounded-md" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function FamilyComponent() {
   const { family } = Route.useLoaderData();
@@ -211,9 +257,16 @@ function FamilyComponent() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-md bg-orange-500 px-4 py-2.5 text-[14px] font-medium text-white shadow-border transition hover:bg-orange-600 disabled:opacity-50"
+                className="flex items-center justify-center w-full rounded-md bg-orange-500 px-4 py-2.5 text-[14px] font-medium text-white shadow-border transition hover:bg-orange-600 disabled:opacity-50"
               >
-                {isLoading ? "作成中..." : "作成する"}
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    作成中...
+                  </>
+                ) : (
+                  "作成する"
+                )}
               </button>
             </form>
           </div>
@@ -244,9 +297,16 @@ function FamilyComponent() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
+                className="flex items-center justify-center w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
               >
-                {isLoading ? "参加中..." : "参加する"}
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    参加中...
+                  </>
+                ) : (
+                  "参加する"
+                )}
               </button>
             </form>
           </div>

@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
+import { Skeleton } from "@/components/ui/skeleton";
 import { UserMenu } from "@/components/user-menu";
 import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
 
@@ -33,8 +34,62 @@ export const Route = createFileRoute("/(app)/dashboard")({
     }
     throw redirect({ to: "/login" });
   },
+  pendingComponent: DashboardPending,
   component: RouteComponent,
 });
+
+function DashboardPending() {
+  return (
+    <div className="mx-auto max-w-5xl p-6">
+      {/* ヘッダーエリア */}
+      <header className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
+            Pooh<span className="text-orange-500">Ma</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-[36px] w-[100px] rounded-md" />
+          <Skeleton className="h-10 w-10 rounded-full" />
+        </div>
+      </header>
+
+      {/* 検索・フィルターエリア */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-full rounded-md" />
+          <Skeleton className="h-10 w-20 rounded-md" />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-6 w-20 rounded-full" />
+          <Skeleton className="h-6 w-14 rounded-full" />
+        </div>
+      </div>
+
+      {/* レコード一覧 (Grid Layout) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton component uses index as key
+            key={i}
+            className="flex flex-row md:flex-col overflow-hidden rounded-lg bg-card shadow-card block border border-border/50"
+          >
+            <Skeleton className="aspect-square w-28 shrink-0 md:aspect-video md:w-full rounded-none" />
+            <div className="flex flex-1 flex-col justify-center p-3 md:p-4 gap-2 md:gap-4">
+              <Skeleton className="h-5 md:h-6 w-3/4" />
+              <div className="flex gap-1">
+                <Skeleton className="h-4 md:h-5 w-12 rounded-full" />
+                <Skeleton className="h-4 md:h-5 w-16 rounded-full" />
+              </div>
+              <Skeleton className="mt-auto hidden h-[34px] w-full rounded-md md:block" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const routeApi = getRouteApi("/(app)/dashboard");
 

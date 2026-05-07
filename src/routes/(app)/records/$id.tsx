@@ -19,6 +19,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   deleteRecord,
   getOgpInfoFn,
@@ -32,8 +34,45 @@ export const Route = createFileRoute("/(app)/records/$id")({
     const record = await getRecordDetail({ data: { id: params.id } });
     return { record };
   },
+  pendingComponent: RecordDetailPending,
   component: RecordDetailComponent,
 });
+
+function RecordDetailPending() {
+  return (
+    <div className="mx-auto max-w-3xl p-6">
+      <div className="mb-6">
+        <Skeleton className="h-5 w-32 rounded-md" />
+      </div>
+
+      <div className="overflow-hidden rounded-lg bg-card shadow-card">
+        {/* OGP ヘッダー */}
+        <Skeleton className="relative aspect-video w-full md:aspect-[21/9] rounded-none" />
+
+        {/* 基本情報 */}
+        <div className="p-6 md:p-8">
+          <div className="mb-6 flex items-start justify-between">
+            <Skeleton className="h-8 w-1/2 rounded-md" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+
+          <div className="mb-8 flex gap-2">
+            <Skeleton className="h-6 w-16 rounded-md" />
+            <Skeleton className="h-6 w-20 rounded-md" />
+          </div>
+
+          <div className="mb-10">
+            <Skeleton className="mb-6 h-6 w-32 rounded-md" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-40 w-full rounded-md" />
+              <Skeleton className="h-40 w-full rounded-md" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const routeApi = getRouteApi("/(app)/records/$id");
 
@@ -410,9 +449,16 @@ function RecordDetailComponent() {
             <button
               type="submit"
               disabled={isLoading}
-              className="rounded-md bg-orange-500 px-6 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 disabled:opacity-50 transition"
+              className="flex items-center rounded-md bg-orange-500 px-6 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 disabled:opacity-50 transition"
             >
-              {isLoading ? "保存中..." : "保存する"}
+              {isLoading ? (
+                <>
+                  <Spinner className="mr-2 h-4 w-4" />
+                  保存中...
+                </>
+              ) : (
+                "保存する"
+              )}
             </button>
           </div>
         </form>
