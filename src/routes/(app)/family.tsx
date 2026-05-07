@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,6 +77,9 @@ function FamilyComponent() {
   const [createPasscodeConfirm, setCreatePasscodeConfirm] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showCreatePasscode, setShowCreatePasscode] = useState(false);
+  const [showCreatePasscodeConfirm, setShowCreatePasscodeConfirm] =
+    useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,9 +107,7 @@ function FamilyComponent() {
           masterKeySalt: salt,
         },
       });
-      toast.success(
-        "家族グループを作成しました。再ログインしてパスコードを入力してください。",
-      );
+      toast.success("家族グループを作成しました。");
       await router.invalidate();
     } catch {
       toast.error("作成に失敗しました");
@@ -222,16 +224,29 @@ function FamilyComponent() {
                 >
                   パスコード <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="password"
-                  id="family-passcode-input"
-                  required
-                  minLength={4}
-                  value={createPasscode}
-                  onChange={(e) => setCreatePasscode(e.target.value)}
-                  placeholder="4文字以上"
-                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
+                <div className="relative">
+                  <input
+                    type={showCreatePasscode ? "text" : "password"}
+                    id="family-passcode-input"
+                    required
+                    minLength={4}
+                    value={createPasscode}
+                    onChange={(e) => setCreatePasscode(e.target.value)}
+                    placeholder="4文字以上"
+                    className="w-full rounded-md bg-card p-2.5 text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatePasscode(!showCreatePasscode)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showCreatePasscode ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <p className="mt-1.5 text-[12px] text-muted-foreground">
                   暗号化に使用します。忘れるとヒントを復元できません。
                 </p>
@@ -243,16 +258,31 @@ function FamilyComponent() {
                 >
                   パスコード（確認）
                 </label>
-                <input
-                  type="password"
-                  id="family-passcode-confirm-input"
-                  required
-                  minLength={4}
-                  value={createPasscodeConfirm}
-                  onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
-                  placeholder="もう一度入力"
-                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
+                <div className="relative">
+                  <input
+                    type={showCreatePasscodeConfirm ? "text" : "password"}
+                    id="family-passcode-confirm-input"
+                    required
+                    minLength={4}
+                    value={createPasscodeConfirm}
+                    onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
+                    placeholder="もう一度入力"
+                    className="w-full rounded-md bg-card p-2.5 text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowCreatePasscodeConfirm(!showCreatePasscodeConfirm)
+                    }
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  >
+                    {showCreatePasscodeConfirm ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"

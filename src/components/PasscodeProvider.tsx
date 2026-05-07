@@ -1,4 +1,5 @@
 import { useRouteContext } from "@tanstack/react-router";
+import { Eye, EyeOff } from "lucide-react";
 import type React from "react";
 import {
   createContext,
@@ -51,6 +52,7 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
   const [passcode, setPasscode] = useState("");
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [showPasscode, setShowPasscode] = useState(false);
   const resolvePromiseRef = useRef<((value: boolean) => void) | null>(null);
 
   const storageKey = user?.familyId
@@ -223,15 +225,28 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
               のパスコードを入力してください。
             </p>
             <form onSubmit={handleUnlockSubmit} className="space-y-4">
-              <input
-                ref={passcodeInputRef}
-                type="password"
-                className="w-full rounded-lg border bg-background px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="パスコード"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                disabled={isUnlocking}
-              />
+              <div className="relative">
+                <input
+                  ref={passcodeInputRef}
+                  type={showPasscode ? "text" : "password"}
+                  className="w-full rounded-lg border bg-background px-4 py-3 text-lg pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="パスコード"
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value)}
+                  disabled={isUnlocking}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasscode(!showPasscode)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-muted-foreground hover:text-foreground"
+                >
+                  {showPasscode ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
               <div className="flex gap-3">
                 <button
                   type="button"
