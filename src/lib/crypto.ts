@@ -23,14 +23,14 @@ function bufferToText(buffer: ArrayBuffer): string {
 /**
  * ArrayBuffer を Base64 文字列に変換
  */
-function bufferToBase64(buffer: ArrayBuffer): string {
+export function bufferToBase64(buffer: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }
 
 /**
  * Base64 文字列を ArrayBuffer に変換
  */
-function base64ToBuffer(base64: string): ArrayBuffer {
+export function base64ToBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -166,4 +166,23 @@ export async function unwrapMasterKey(
 export function generateSalt(): string {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   return bufferToBase64(salt.buffer as ArrayBuffer);
+}
+
+/**
+ * CryptoKey を Base64 文字列にエクスポート
+ */
+export async function exportKeyToBase64(key: CryptoKey): Promise<string> {
+  const exported = await crypto.subtle.exportKey("raw", key);
+  return bufferToBase64(exported);
+}
+
+/**
+ * Base64 文字列から CryptoKey をインポート
+ */
+export async function importKeyFromBase64(base64: string): Promise<CryptoKey> {
+  const buffer = base64ToBuffer(base64);
+  return await crypto.subtle.importKey("raw", buffer, ALGORITHM, true, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
