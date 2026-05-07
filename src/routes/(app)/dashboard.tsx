@@ -5,7 +5,8 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { LayoutGrid, List } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserMenu } from "@/components/user-menu";
@@ -93,12 +94,59 @@ function DashboardPending() {
 
 const routeApi = getRouteApi("/(app)/dashboard");
 
+type SortParam = "name-asc" | "name-desc" | "url-asc" | "url-desc";
+
 function RouteComponent() {
   const { records, availableTags, user, searchParams } =
     routeApi.useLoaderData();
   const navigate = useNavigate({ from: "/dashboard" });
 
   const [searchInput, setSearchInput] = useState(searchParams.q || "");
+
+  const [viewMode, setViewMode] = useState<"card" | "list">(() => {
+    if (typeof window !== "undefined") {
+      return (
+        (localStorage.getItem("poohma_view_mode") as "card" | "list") || "card"
+      );
+    }
+    return "card";
+  });
+
+  const [sortParam, setSortParam] = useState<SortParam>(() => {
+    if (typeof window !== "undefined") {
+      return (
+        (localStorage.getItem("poohma_sort_param") as SortParam) || "name-asc"
+      );
+    }
+    return "name-asc";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("poohma_view_mode", viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem("poohma_sort_param", sortParam);
+  }, [sortParam]);
+
+  const sortedRecords = useMemo(() => {
+    const copy = [...records];
+    return copy.sort((a, b) => {
+      if (sortParam === "name-asc") {
+        return a.title.localeCompare(b.title);
+      }
+      if (sortParam === "name-desc") {
+        return b.title.localeCompare(a.title);
+      }
+      if (sortParam === "url-asc") {
+        return (a.url || "").localeCompare(b.url || "");
+      }
+      if (sortParam === "url-desc") {
+        return (b.url || "").localeCompare(a.url || "");
+      }
+      return 0;
+    });
+  }, [records, sortParam]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,7 +228,45 @@ function RouteComponent() {
         )}
       </div>
 
-      {/* レコード一覧 (Grid Layout) */}
+      {/* レコード一覧 */}
+      {records.length > 0 && (
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-[14px] text-muted-foreground font-medium tracking-geist-ui">
+            {records.length} 件のレコード
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={sortParam}
+              onChange={(e) => setSortParam(e.target.value as SortParam)}
+              className="rounded-md border border-border/50 bg-card px-2 py-1.5 text-[12px] font-medium text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+            >
+              <option value="name-asc">名前（昇順）</option>
+              <option value="name-desc">名前（降順）</option>
+              <option value="url-asc">URL（昇順）</option>
+              <option value="url-desc">URL（降順）</option>
+            </select>
+            <div className="flex items-center rounded-md border border-border/50 bg-card shadow-sm overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setViewMode("card")}
+                className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                title="カード表示"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                title="リスト表示"
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {records.length === 0 ? (
         <div className="rounded-lg bg-muted/50 p-12 text-center text-muted-foreground shadow-border">
           まだ登録されたサービスはありません。
@@ -188,14 +274,28 @@ function RouteComponent() {
           右上のボタンから追加してみましょう！
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-          {records.map((record) => (
-            <ServiceCard
-              key={record.id}
-              record={record}
-              onTagClick={handleTagClick}
-            />
-          ))}
+        <div
+          className={
+            viewMode === "card"
+              ? "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
+              : "flex flex-col gap-3"
+          }
+        >
+          {sortedRecords.map((record) =>
+            viewMode === "card" ? (
+              <ServiceCard
+                key={record.id}
+                record={record}
+                onTagClick={handleTagClick}
+              />
+            ) : (
+              <ServiceListItem
+                key={record.id}
+                record={record}
+                onTagClick={handleTagClick}
+              />
+            ),
+          )}
         </div>
       )}
     </div>
@@ -204,6 +304,63 @@ function RouteComponent() {
 
 type Record = Awaited<ReturnType<typeof getRecords>>[number];
 type Tag = { id: string; tagName: string };
+
+// リスト表示用コンポーネント
+function ServiceListItem({
+  record,
+  onTagClick,
+}: {
+  record: Record & { tags: Tag[] };
+  onTagClick: (tag: string) => void;
+}) {
+  return (
+    <Link
+      to="/records/$id"
+      params={{ id: record.id }}
+      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-hidden rounded-lg bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover border border-border/50 block"
+    >
+      <div className="flex flex-col gap-1 overflow-hidden">
+        <div className="flex items-center gap-2">
+          <span className="text-[16px] font-semibold text-foreground truncate tracking-geist-ui group-hover:text-orange-500 transition-colors">
+            {record.title}
+          </span>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              record.visibility === "SHARED"
+                ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                : "bg-secondary text-muted-foreground"
+            }`}
+          >
+            {record.visibility === "SHARED" ? "家族" : "個人"}
+          </span>
+        </div>
+        {record.url && (
+          <span className="text-[12px] text-muted-foreground truncate">
+            {record.url}
+          </span>
+        )}
+      </div>
+
+      {record.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 shrink-0 sm:justify-end mt-2 sm:mt-0">
+          {record.tags.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              onClick={(e) => {
+                e.preventDefault();
+                onTagClick(t.tagName);
+              }}
+              className="rounded-full bg-background border border-border/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-colors"
+            >
+              #{t.tagName}
+            </button>
+          ))}
+        </div>
+      )}
+    </Link>
+  );
+}
 
 // カードコンポーネント (UIパーツ)
 function ServiceCard({
