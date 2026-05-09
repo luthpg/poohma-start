@@ -10,6 +10,14 @@ const config = defineConfig({
     tsconfigPaths: true,
   },
   plugins: [devtools(), nitro(), tailwindcss(), tanstackStart(), viteReact()],
+  server: {
+    proxy: {
+      "/__/auth": {
+        target: "https://poohma.firebaseapp.com",
+        changeOrigin: true,
+      },
+    },
+  },
 });
 
 export default config;
