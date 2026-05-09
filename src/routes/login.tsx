@@ -1,6 +1,10 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { signInWithPopup } from "firebase/auth";
-import { useState } from "react";
+import {
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithRedirect,
+} from "firebase/auth";
+import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { syncUser } from "@/services/auth.functions";
 import { auth, googleProvider } from "@/utils/firebase";
@@ -17,8 +21,50 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!auth) {
+      setIsLoading(false);
+      return;
+    }
+
+    // リダイレクト結果のエラー確認
+    const checkRedirect = async () => {
+      try {
+        // biome-ignore lint/style/noNonNullAssertion: authはuseEffectの時点でnullでないことが保証されている
+        await getRedirectResult(auth!);
+      } catch (err) {
+        console.error("Redirect login error:", err);
+        setError("ログインに失敗しました。もう一度お試しください。");
+        setIsLoading(false);
+      }
+    };
+
+    checkRedirect();
+
+    // 認証状態の監視
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const idToken = await user.getIdToken();
+          await syncUser({ data: { idToken } });
+          await router.invalidate();
+          await router.navigate({ to: "/dashboard" });
+        } catch (err) {
+          console.error("User sync error:", err);
+          setError("ユーザー情報の同期に失敗しました。");
+          setIsLoading(false);
+        }
+      } else {
+        // 未ログイン状態が確定したらローディングを解除
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const handleGoogleLogin = async () => {
     if (!auth || !googleProvider) {
@@ -30,16 +76,10 @@ function LoginPage() {
     setError(null);
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      const idToken = await user.getIdToken();
-      await syncUser({ data: { idToken } });
-      await router.invalidate();
-      await router.navigate({ to: "/dashboard" });
+      await signInWithRedirect(auth, googleProvider);
     } catch (err) {
-      console.error(err);
-      setError("ログインに失敗しました。もう一度お試しください。");
-    } finally {
+      console.error("Login redirect error:", err);
+      setError("ログイン画面への遷移に失敗しました。もう一度お試しください。");
       setIsLoading(false);
     }
   };
