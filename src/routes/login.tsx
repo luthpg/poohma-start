@@ -32,11 +32,9 @@ function LoginPage() {
 
     // リダイレクト結果のエラー確認
     const checkRedirect = async () => {
-      console.log("[Auth] checkRedirect started");
       try {
         // biome-ignore lint/style/noNonNullAssertion: authはuseEffectの時点でnullでないことが保証されている
-        const result = await getRedirectResult(auth!);
-        console.log("[Auth] getRedirectResult returned:", result ? "User found" : "null");
+        await getRedirectResult(auth!);
       } catch (err) {
         console.error("Redirect login error:", err);
         setError("ログインに失敗しました。もう一度お試しください。");
@@ -48,15 +46,11 @@ function LoginPage() {
 
     // 認証状態の監視
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("[Auth] onAuthStateChanged fired. User:", user ? user.uid : "null");
       if (user) {
         try {
-          console.log("[Auth] Calling syncUser...");
           const idToken = await user.getIdToken();
           await syncUser({ data: { idToken } });
-          console.log("[Auth] syncUser succeeded. Invalidating router...");
           await router.invalidate();
-          console.log("[Auth] Navigating to dashboard...");
           await router.navigate({ to: "/dashboard" });
         } catch (err) {
           console.error("User sync error:", err);
@@ -65,7 +59,6 @@ function LoginPage() {
         }
       } else {
         // 未ログイン状態が確定したらローディングを解除
-        console.log("[Auth] User is null. Setting isLoading to false.");
         setIsLoading(false);
       }
     });
