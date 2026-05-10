@@ -1,3 +1,4 @@
+import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   getRouteApi,
@@ -25,8 +26,11 @@ import {
   deleteRecord,
   getOgpInfoFn,
   getRecordDetail,
+  type getRecords,
   updateRecord,
 } from "@/services/records.functions";
+
+type DashboardData = Awaited<ReturnType<typeof getRecords>>;
 
 export const Route = createFileRoute("/(app)/records/$id")({
   loader: async ({ params }) => {
@@ -84,6 +88,7 @@ function RecordDetailComponent() {
   const { record } = routeApi.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -242,6 +247,38 @@ function RecordDetailComponent() {
           },
         },
       });
+
+      // ダッシュボードのキャッシュを即座に更新して戻った時の表示を最新にする
+      queryClient.setQueriesData(
+        { queryKey: ["records"] },
+        (oldData: InfiniteData<DashboardData> | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              items: page.items.map((r) => {
+                if (r.id === record.id) {
+                  return {
+                    ...r,
+                    title,
+                    url: url || null,
+                    ogpImage: ogpImage || null,
+                    ogpDescription: ogpDescription || null,
+                    memo: memo || null,
+                    visibility,
+                    tags: tagsArray.map((t) => ({ id: t, tagName: t })),
+                  };
+                }
+                return r;
+              }),
+            })),
+          };
+        },
+      );
+      // バックグラウンドで最新状態に同期させる
+      queryClient.invalidateQueries({ queryKey: ["records"] });
+
       await router.invalidate();
       setIsEditing(false);
     } catch (error) {
@@ -257,6 +294,23 @@ function RecordDetailComponent() {
 
     try {
       await deleteRecord({ data: { id: record.id } });
+
+      // ダッシュボードのキャッシュから削除
+      queryClient.setQueriesData(
+        { queryKey: ["records"] },
+        (oldData: InfiniteData<DashboardData> | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((r) => r.id !== record.id),
+            })),
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ["records"] });
+
       toast.success("レコードを削除しました");
       await navigate({ to: "/dashboard" });
     } catch (error) {

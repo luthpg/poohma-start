@@ -1,5 +1,10 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  createRootRouteWithContext,
+  HeadContent,
+  Scripts,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { getAuthUser } from "@/services/auth.functions";
 import "@fontsource/geist-sans/400.css";
@@ -15,7 +20,11 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "@/styles.css?url";
 
-export const Route = createRootRoute({
+export interface RouterContext {
+  queryClient: QueryClient;
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       {
@@ -96,25 +105,27 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ThemeProvider defaultTheme="system" storageKey="theme">
-          <PasscodeProvider>
-            <div className="min-h-screen bg-background text-foreground">
-              {children}
-              <TanStackDevtools
-                config={{
-                  position: "bottom-right",
-                }}
-                plugins={[
-                  {
-                    name: "Tanstack Router",
-                    render: <TanStackRouterDevtoolsPanel />,
-                  },
-                ]}
-              />
-              <Toaster />
-            </div>
-          </PasscodeProvider>
-        </ThemeProvider>
+        <QueryClientProvider client={Route.useRouteContext().queryClient}>
+          <ThemeProvider defaultTheme="system" storageKey="theme">
+            <PasscodeProvider>
+              <div className="min-h-screen bg-background text-foreground">
+                {children}
+                <TanStackDevtools
+                  config={{
+                    position: "bottom-right",
+                  }}
+                  plugins={[
+                    {
+                      name: "Tanstack Router",
+                      render: <TanStackRouterDevtoolsPanel />,
+                    },
+                  ]}
+                />
+                <Toaster />
+              </div>
+            </PasscodeProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
         <Scripts />
       </body>
     </html>
