@@ -11,9 +11,17 @@ import { RecordInputSchema } from "@/utils/schemas";
  */
 export const getRecords = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .inputValidator((data?: { tag?: string; q?: string }) => data)
+  .inputValidator(
+    (data?: {
+      tag?: string;
+      q?: string;
+      page?: number;
+      limit?: number;
+      sort?: string;
+    }) => data,
+  )
   .handler(async ({ data, context: { user } }) => {
-    const { tag, q } = data || {};
+    const { tag, q, page = 1, limit = 20, sort = "name-asc" } = data || {};
 
     // 検索条件の構築
     const searchFilter = q
@@ -56,16 +64,35 @@ export const getRecords = createServerFn({ method: "GET" })
       ].filter(Boolean) as Prisma.ServiceRecordWhereInput[],
     };
 
+    // ソート順の構築
+    let orderBy:
+      | Prisma.ServiceRecordOrderByWithRelationInput
+      | Prisma.ServiceRecordOrderByWithRelationInput[] = { updatedAt: "desc" };
+    if (sort === "name-asc") orderBy = { title: "asc" };
+    if (sort === "name-desc") orderBy = { title: "desc" };
+    if (sort === "url-asc") orderBy = { url: "asc" };
+    if (sort === "url-desc") orderBy = { url: "desc" };
+
+    const skip = (page - 1) * limit;
+
     const records = await db.serviceRecord.findMany({
       where: whereCondition,
+      skip,
+      take: limit + 1, // 次のページがあるか確認するために1件多く取得
       include: {
         tags: true,
         user: { select: { displayName: true } },
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy,
     });
 
-    return records;
+    const hasNextPage = records.length > limit;
+    const items = hasNextPage ? records.slice(0, limit) : records;
+
+    return {
+      items,
+      hasNextPage,
+    };
   });
 
 /**

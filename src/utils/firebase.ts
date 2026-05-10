@@ -4,7 +4,10 @@ import { env } from "@/env";
 
 const firebaseConfig = {
   apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: typeof window !== "undefined" ? window.location.host : env.VITE_FIREBASE_AUTH_DOMAIN,
+  authDomain:
+    typeof window !== "undefined"
+      ? window.location.host
+      : env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: env.VITE_FIREBASE_PROJECT_ID,
 };
 
