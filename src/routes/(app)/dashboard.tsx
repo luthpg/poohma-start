@@ -6,31 +6,42 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { LayoutGrid, List } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  type SubmitEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { UserMenu } from "@/components/user-menu";
 import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
 
 const searchSchema = z.object({
   q: z.string().optional(),
   tag: z.string().optional(),
+  sort: z
+    .enum(["name-asc", "name-desc", "url-asc", "url-desc", "updatedAt-desc"])
+    .optional(),
 });
 
 export const Route = createFileRoute("/(app)/dashboard")({
   validateSearch: searchSchema,
-  loaderDeps: ({ search: { q, tag } }) => ({ q, tag }),
-  loader: async ({ context, deps: { q, tag } }) => {
-    const [records, availableTags] = await Promise.all([
-      getRecords({ data: { q, tag } }),
+  loaderDeps: ({ search: { q, tag, sort } }) => ({ q, tag, sort }),
+  loader: async ({ context, deps: { q, tag, sort } }) => {
+    const [initialData, availableTags] = await Promise.all([
+      getRecords({ data: { q, tag, sort, page: 1, limit: 20 } }),
       getAvailableTagsFn(),
     ]);
     if (context.user) {
       return {
-        records,
+        initialRecords: initialData.items,
+        initialHasNextPage: initialData.hasNextPage,
         availableTags,
         user: context.user,
-        searchParams: { q, tag },
+        searchParams: { q, tag, sort },
       };
     }
     throw redirect({ to: "/login" });
@@ -42,29 +53,31 @@ export const Route = createFileRoute("/(app)/dashboard")({
 function DashboardPending() {
   return (
     <div className="mx-auto max-w-5xl p-6">
-      {/* ヘッダーエリア */}
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
-            Pooh<span className="text-orange-500">Ma</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-[36px] w-[100px] rounded-md" />
-          <Skeleton className="h-10 w-10 rounded-full" />
-        </div>
-      </header>
+      <div className="sticky top-0 z-20 -mx-6 -mt-6 mb-6 bg-background/95 px-6 pb-4 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        {/* ヘッダーエリア */}
+        <header className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
+              Pooh<span className="text-orange-500">Ma</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-[36px] w-[100px] rounded-md" />
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </div>
+        </header>
 
-      {/* 検索・フィルターエリア */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-full rounded-md" />
-          <Skeleton className="h-10 w-20 rounded-md" />
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Skeleton className="h-6 w-16 rounded-full" />
-          <Skeleton className="h-6 w-20 rounded-full" />
-          <Skeleton className="h-6 w-14 rounded-full" />
+        {/* 検索・フィルターエリア */}
+        <div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-full rounded-md" />
+            <Skeleton className="h-10 w-20 rounded-md" />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-6 w-14 rounded-full" />
+          </div>
         </div>
       </div>
 
@@ -97,58 +110,128 @@ const routeApi = getRouteApi("/(app)/dashboard");
 type SortParam = "name-asc" | "name-desc" | "url-asc" | "url-desc";
 
 function RouteComponent() {
-  const { records, availableTags, user, searchParams } =
-    routeApi.useLoaderData();
+  const {
+    initialRecords,
+    initialHasNextPage,
+    availableTags,
+    user,
+    searchParams,
+  } = routeApi.useLoaderData();
   const navigate = useNavigate({ from: "/dashboard" });
 
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // ヘッダーの高さ分(約70px)は常に表示、それ以降でスクロール方向を判定
+      if (currentScrollY < 70) {
+        setIsHeaderVisible(true);
+      } else if (currentScrollY > lastScrollY.current) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const [searchInput, setSearchInput] = useState(searchParams.q || "");
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
-  const [viewMode, setViewMode] = useState<"card" | "list">(() => {
+  useEffect(() => {
     if (typeof window !== "undefined") {
-      return (
-        (localStorage.getItem("poohma_view_mode") as "card" | "list") || "card"
-      );
+      const savedMode = localStorage.getItem("poohma_view_mode") as
+        | "card"
+        | "list";
+      if (savedMode) {
+        setViewMode(savedMode);
+      }
     }
-    return "card";
-  });
-
-  const [sortParam, setSortParam] = useState<SortParam>(() => {
-    if (typeof window !== "undefined") {
-      return (
-        (localStorage.getItem("poohma_sort_param") as SortParam) || "name-asc"
-      );
-    }
-    return "name-asc";
-  });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("poohma_view_mode", viewMode);
   }, [viewMode]);
 
-  useEffect(() => {
-    localStorage.setItem("poohma_sort_param", sortParam);
-  }, [sortParam]);
+  const sortParam = (searchParams.sort as SortParam) || "name-asc";
 
-  const sortedRecords = useMemo(() => {
-    const copy = [...records];
-    return copy.sort((a, b) => {
-      if (sortParam === "name-asc") {
-        return a.title.localeCompare(b.title);
-      }
-      if (sortParam === "name-desc") {
-        return b.title.localeCompare(a.title);
-      }
-      if (sortParam === "url-asc") {
-        return (a.url || "").localeCompare(b.url || "");
-      }
-      if (sortParam === "url-desc") {
-        return (b.url || "").localeCompare(a.url || "");
-      }
-      return 0;
+  const handleSortChange = (newSort: SortParam) => {
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        sort: newSort,
+      }),
     });
-  }, [records, sortParam]);
+  };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const [records, setRecords] = useState(initialRecords);
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Sync state when URL params change (loader data changes)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 意図的にタグやソートパラメータが変わったときに再取得している
+  useEffect(() => {
+    setRecords(initialRecords);
+    setHasNextPage(initialHasNextPage);
+    setPage(1);
+    setSearchInput(searchParams.q || "");
+  }, [
+    initialRecords,
+    initialHasNextPage,
+    searchParams.q,
+    searchParams.tag,
+    searchParams.sort,
+  ]);
+
+  const fetchNextPage = useCallback(async () => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    setIsFetchingNextPage(true);
+    try {
+      const nextPage = page + 1;
+      const res = await getRecords({
+        data: {
+          q: searchParams.q,
+          tag: searchParams.tag,
+          sort: searchParams.sort,
+          page: nextPage,
+          limit: 20,
+        },
+      });
+      setRecords((prev) => [...prev, ...res.items]);
+      setHasNextPage(res.hasNextPage);
+      setPage(nextPage);
+    } catch (e) {
+      console.error("Failed to fetch next page", e);
+    } finally {
+      setIsFetchingNextPage(false);
+    }
+  }, [hasNextPage, isFetchingNextPage, page, searchParams]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 1.0 },
+    );
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+    return () => observer.disconnect();
+  }, [fetchNextPage]);
+
+  const handleSearch = (e: SubmitEvent) => {
     e.preventDefault();
     navigate({
       search: (prev) => ({
@@ -169,63 +252,69 @@ function RouteComponent() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      {/* ヘッダーエリア */}
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
-            Pooh<span className="text-orange-500">Ma</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/records/new"
-            className="rounded-md bg-orange-500 px-4 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 transition"
-          >
-            + 新規登録
-          </Link>
-          <UserMenu user={user} />
-        </div>
-      </header>
-
-      {/* 検索・フィルターエリア */}
-      <div className="mb-6">
-        <form onSubmit={handleSearch} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="タグやサービス名で検索..."
-            className="w-full rounded-md bg-card px-4 py-2.5 h-10 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
-          />
-          <button
-            type="submit"
-            className="rounded-md bg-foreground px-4 py-2.5 h-10 w-20 text-[14px] font-medium text-background shadow-border hover:bg-foreground/90 transition"
-          >
-            検索
-          </button>
-        </form>
-        {/* タグクラウド (フィルター) */}
-        {availableTags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {availableTags.map((t: string) => {
-              const isActive = searchParams.tag === t;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => handleTagClick(t)}
-                  className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                    isActive
-                      ? "bg-orange-500 text-white shadow-border"
-                      : "bg-card text-muted-foreground shadow-border hover:bg-accent"
-                  }`}
-                >
-                  #{t}
-                </button>
-              );
-            })}
+      <div
+        className={`sticky top-0 z-20 -mx-6 -mt-6 mb-6 bg-background/95 px-6 pb-4 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-300 ease-in-out ${
+          isHeaderVisible ? "translate-y-0" : "-translate-y-[72px]"
+        }`}
+      >
+        {/* ヘッダーエリア */}
+        <header className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-[32px] font-semibold tracking-geist-h1 text-foreground">
+              Pooh<span className="text-orange-500">Ma</span>
+            </h1>
           </div>
-        )}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/records/new"
+              className="rounded-md bg-orange-500 px-4 py-2 text-[14px] font-medium text-white shadow-border hover:bg-orange-600 transition"
+            >
+              + 新規登録
+            </Link>
+            <UserMenu user={user} />
+          </div>
+        </header>
+
+        {/* 検索・フィルターエリア */}
+        <div>
+          <form onSubmit={handleSearch} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="タグやサービス名で検索..."
+              className="w-full rounded-md bg-card px-4 py-2.5 h-10 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-foreground px-4 py-2.5 h-10 w-20 text-[14px] font-medium text-background shadow-border hover:bg-foreground/90 transition"
+            >
+              検索
+            </button>
+          </form>
+          {/* タグクラウド (フィルター) */}
+          {availableTags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {availableTags.map((t: string) => {
+                const isActive = searchParams.tag === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleTagClick(t)}
+                    className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                      isActive
+                        ? "bg-orange-500 text-white shadow-border"
+                        : "bg-card text-muted-foreground shadow-border hover:bg-accent"
+                    }`}
+                  >
+                    #{t}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* レコード一覧 */}
@@ -237,7 +326,7 @@ function RouteComponent() {
           <div className="flex items-center gap-3">
             <select
               value={sortParam}
-              onChange={(e) => setSortParam(e.target.value as SortParam)}
+              onChange={(e) => handleSortChange(e.target.value as SortParam)}
               className="rounded-md border border-border/50 bg-card px-2 py-1.5 text-[12px] font-medium text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
             >
               <option value="name-asc">名前（昇順）</option>
@@ -281,7 +370,7 @@ function RouteComponent() {
               : "flex flex-col gap-3"
           }
         >
-          {sortedRecords.map((record) =>
+          {records.map((record) =>
             viewMode === "card" ? (
               <ServiceCard
                 key={record.id}
@@ -298,11 +387,30 @@ function RouteComponent() {
           )}
         </div>
       )}
+
+      {/* インフィニットスクロールの監視用要素とローディングスピナー */}
+      {records.length > 0 && (
+        <div ref={observerTarget} className="mt-8 flex justify-center py-4">
+          {isFetchingNextPage && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Spinner className="h-5 w-5" />
+              <span className="text-sm">読み込み中...</span>
+            </div>
+          )}
+          {!hasNextPage && records.length > 0 && (
+            <div className="text-sm text-muted-foreground/60">
+              すべてのレコードを表示しました
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-type Record = Awaited<ReturnType<typeof getRecords>>[number];
+type Record = NonNullable<
+  Awaited<ReturnType<typeof getRecords>>["items"]
+>[number];
 type Tag = { id: string; tagName: string };
 
 // リスト表示用コンポーネント

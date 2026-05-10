@@ -5,7 +5,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { usePasscode } from "@/components/PasscodeProvider";
 import {
@@ -39,9 +39,13 @@ export const Route = createFileRoute("/(app)/records/$id")({
 });
 
 function RecordDetailPending() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-6">
+      <div className="sticky top-0 z-20 -mx-6 -mt-6 mb-6 bg-background/95 px-6 pb-4 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Skeleton className="h-5 w-32 rounded-md" />
       </div>
 
@@ -80,6 +84,10 @@ function RecordDetailComponent() {
   const { record } = routeApi.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -262,9 +270,11 @@ function RecordDetailComponent() {
   if (isEditing) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <h1 className="mb-8 text-[24px] font-semibold tracking-geist-h2 text-foreground">
-          レコードを編集
-        </h1>
+        <div className="sticky top-0 z-20 -mx-6 -mt-6 mb-6 bg-background/95 px-6 pb-4 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center">
+          <h1 className="text-[24px] font-semibold tracking-geist-h2 text-foreground">
+            レコードを編集
+          </h1>
+        </div>
         <form onSubmit={handleEditSubmit} className="space-y-8">
           <section className="rounded-lg bg-card p-6 shadow-card transition-shadow">
             <div className="space-y-4">
@@ -470,7 +480,7 @@ function RecordDetailComponent() {
   return (
     <div className="mx-auto max-w-3xl p-6">
       {/* 戻るボタン */}
-      <div className="mb-6">
+      <div className="sticky top-0 z-20 -mx-6 -mt-6 mb-6 bg-background/95 px-6 pb-4 pt-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <button
           type="button"
           disabled={isNavigating}
