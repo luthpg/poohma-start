@@ -1,3 +1,4 @@
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   getRouteApi,
@@ -6,18 +7,14 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { LayoutGrid, List } from "lucide-react";
-import {
-  type SubmitEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type SubmitEvent, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { UserMenu } from "@/components/user-menu";
 import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
+
+type DashboardData = Awaited<ReturnType<typeof getRecords>>;
 
 const searchSchema = z.object({
   q: z.string().optional(),
@@ -31,20 +28,40 @@ export const Route = createFileRoute("/(app)/dashboard")({
   validateSearch: searchSchema,
   loaderDeps: ({ search: { q, tag, sort } }) => ({ q, tag, sort }),
   loader: async ({ context, deps: { q, tag, sort } }) => {
-    const [initialData, availableTags] = await Promise.all([
-      getRecords({ data: { q, tag, sort, page: 1, limit: 20 } }),
-      getAvailableTagsFn(),
-    ]);
-    if (context.user) {
-      return {
-        initialRecords: initialData.items,
-        initialHasNextPage: initialData.hasNextPage,
-        availableTags,
-        user: context.user,
-        searchParams: { q, tag, sort },
-      };
+    if (!context.user) {
+      throw redirect({ to: "/login" });
     }
-    throw redirect({ to: "/login" });
+
+    const [availableTags] = await Promise.all([
+      getAvailableTagsFn(),
+      context.queryClient.ensureInfiniteQueryData({
+        queryKey: ["records", q, tag, sort],
+        queryFn: async ({ pageParam }) => {
+          return await getRecords({
+            data: {
+              q,
+              tag,
+              sort,
+              page: pageParam as number,
+              limit: 20,
+            },
+          });
+        },
+        initialPageParam: 1,
+        getNextPageParam: (
+          lastPage: DashboardData,
+          allPages: DashboardData[],
+        ) => {
+          return lastPage.hasNextPage ? allPages.length + 1 : undefined;
+        },
+      }),
+    ]);
+
+    return {
+      availableTags,
+      user: context.user,
+      searchParams: { q, tag, sort },
+    };
   },
   pendingComponent: DashboardPending,
   component: RouteComponent,
@@ -110,13 +127,7 @@ const routeApi = getRouteApi("/(app)/dashboard");
 type SortParam = "name-asc" | "name-desc" | "url-asc" | "url-desc";
 
 function RouteComponent() {
-  const {
-    initialRecords,
-    initialHasNextPage,
-    availableTags,
-    user,
-    searchParams,
-  } = routeApi.useLoaderData();
+  const { availableTags, user, searchParams } = routeApi.useLoaderData();
   const navigate = useNavigate({ from: "/dashboard" });
 
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
@@ -171,50 +182,37 @@ function RouteComponent() {
     });
   };
 
-  const [records, setRecords] = useState(initialRecords);
-  const [page, setPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
-  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSuspenseInfiniteQuery({
+      queryKey: [
+        "records",
+        searchParams.q,
+        searchParams.tag,
+        searchParams.sort,
+      ],
+      queryFn: async ({ pageParam }) => {
+        return await getRecords({
+          data: {
+            q: searchParams.q,
+            tag: searchParams.tag,
+            sort: searchParams.sort,
+            page: pageParam as number,
+            limit: 20,
+          },
+        });
+      },
+      initialPageParam: 1,
+      getNextPageParam: (
+        lastPage: DashboardData,
+        allPages: DashboardData[],
+      ) => {
+        return lastPage.hasNextPage ? allPages.length + 1 : undefined;
+      },
+    });
+
+  const records = data.pages.flatMap((page) => page.items);
+
   const observerTarget = useRef<HTMLDivElement>(null);
-
-  // Sync state when URL params change (loader data changes)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 意図的にタグやソートパラメータが変わったときに再取得している
-  useEffect(() => {
-    setRecords(initialRecords);
-    setHasNextPage(initialHasNextPage);
-    setPage(1);
-    setSearchInput(searchParams.q || "");
-  }, [
-    initialRecords,
-    initialHasNextPage,
-    searchParams.q,
-    searchParams.tag,
-    searchParams.sort,
-  ]);
-
-  const fetchNextPage = useCallback(async () => {
-    if (!hasNextPage || isFetchingNextPage) return;
-    setIsFetchingNextPage(true);
-    try {
-      const nextPage = page + 1;
-      const res = await getRecords({
-        data: {
-          q: searchParams.q,
-          tag: searchParams.tag,
-          sort: searchParams.sort,
-          page: nextPage,
-          limit: 20,
-        },
-      });
-      setRecords((prev) => [...prev, ...res.items]);
-      setHasNextPage(res.hasNextPage);
-      setPage(nextPage);
-    } catch (e) {
-      console.error("Failed to fetch next page", e);
-    } finally {
-      setIsFetchingNextPage(false);
-    }
-  }, [hasNextPage, isFetchingNextPage, page, searchParams]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
