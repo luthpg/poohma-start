@@ -14,9 +14,40 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
+function escapeUnsafeScriptChars(str: string) {
+  return str.replace(/[<>\u2028\u2029\/\b\f\n\r\t\0]/g, (ch) => {
+    switch (ch) {
+      case "<":
+        return "\\u003C";
+      case ">":
+        return "\\u003E";
+      case "/":
+        return "\\u002F";
+      case "\b":
+        return "\\b";
+      case "\f":
+        return "\\f";
+      case "\n":
+        return "\\n";
+      case "\r":
+        return "\\r";
+      case "\t":
+        return "\\t";
+      case "\0":
+        return "\\0";
+      case "\u2028":
+        return "\\u2028";
+      case "\u2029":
+        return "\\u2029";
+      default:
+        return ch;
+    }
+  });
+}
+
 function getThemeScript(storageKey: string, defaultTheme: Theme) {
-  const key = JSON.stringify(storageKey);
-  const fallback = JSON.stringify(defaultTheme);
+  const key = escapeUnsafeScriptChars(JSON.stringify(storageKey));
+  const fallback = escapeUnsafeScriptChars(JSON.stringify(defaultTheme));
 
   return `(function(){try{var t=localStorage.getItem(${key});if(t!=='light'&&t!=='dark'&&t!=='system'){t=${fallback}}var d=matchMedia('(prefers-color-scheme: dark)').matches;var r=t==='system'?(d?'dark':'light'):t;var e=document.documentElement;e.classList.add(r);e.style.colorScheme=r}catch(e){}})();`;
 }
