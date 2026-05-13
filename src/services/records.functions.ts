@@ -4,6 +4,7 @@ import { type Prisma, Visibility } from "@/../generated/prisma/client"; // Prism
 import { authMiddleware } from "@/services/auth.middleware";
 import { db } from "@/services/db.server";
 import { RecordInputSchema } from "@/utils/schemas";
+import { validateUrlSafety } from "@/utils/url-safety";
 
 /**
  * レコード一覧取得
@@ -265,9 +266,19 @@ export const getOgpInfoFn = createServerFn({ method: "GET" })
   .inputValidator((data: { url: string }) => data)
   .handler(async ({ data: { url } }) => {
     try {
+      // SSRF対策: URLスキームとIPアドレスのバリデーション
+      await validateUrlSafety(url);
+
+      // タイムアウト設定 (5秒)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(url, {
         headers: { "User-Agent": "PoohMa-Bot/1.0" },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+
       const html = await response.text();
 
       const titleMatch =
@@ -374,7 +385,7 @@ export const exportRecordsCsv = createServerFn({ method: "GET" })
   });
 
 /**
- * CSVデータからレコードを一括登録
+ * CSVデータからレコードを一括登録（部分的成功を許容）
  */
 export const importRecordsCsv = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -385,60 +396,113 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
     }
     const familyId = user.familyId;
 
-    return await db.$transaction(
-      async (tx) => {
-        for (const row of rows) {
-          // タグのパース
-          const tags =
-            typeof row.Tags === "string"
-              ? row.Tags.split(",")
-                  .map((t: string) => t.trim())
-                  .filter(Boolean)
-              : [];
+    const failures: { row: number; reason: string }[] = [];
+    const validRecords: z.infer<typeof RecordInputSchema>[] = [];
 
-          // 認証情報のパース (Label1, LoginID1, PasswordHint1, PasswordHintIv1...)
-          const credentials = [];
-          for (let i = 1; i <= 10; i++) {
-            const label = row[`Label${i}`];
-            const loginId = row[`LoginID${i}`];
-            const passwordHint = row[`PasswordHint${i}`];
-            const passwordHintIv = row[`PasswordHintIv${i}`];
+    // 1. 全行のパースとバリデーション
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      const rowNum = index + 1; // 1-indexed for user display
 
-            if (label || loginId || passwordHint) {
-              credentials.push({
-                label: String(label || ""),
-                loginId: String(loginId || ""),
-                passwordHint: String(passwordHint || ""),
-                passwordHintIv: passwordHintIv
-                  ? String(passwordHintIv)
-                  : undefined,
-              });
-            }
-          }
-
-          // 最小限のバリデーション: タイトルがない場合はスキップ
-          if (!row.Title) continue;
-
-          await tx.serviceRecord.create({
-            data: {
-              userId: user.id,
-              familyId,
-              title: String(row.Title),
-              url: row.URL ? String(row.URL) : null,
-              memo: row.Memo ? String(row.Memo) : null,
-              visibility: row.Visibility === "SHARED" ? "SHARED" : "PRIVATE",
-              credentials: {
-                create: credentials,
-              },
-              tags: {
-                create: tags.map((tagName: string) => ({
-                  tagName,
-                })),
-              },
-            },
-          });
+      try {
+        // 最小限のチェック: タイトルがない場合はエラー
+        if (!row.Title) {
+          failures.push({ row: rowNum, reason: "タイトルが空です" });
+          continue;
         }
-      },
-      { timeout: 30000 },
-    );
+
+        // タグのパース
+        const tags =
+          typeof row.Tags === "string"
+            ? row.Tags.split(",")
+                .map((t: string) => t.trim())
+                .filter(Boolean)
+            : [];
+
+        // 認証情報のパース
+        const credentials = [];
+        for (let i = 1; i <= 10; i++) {
+          const label = row[`Label${i}`];
+          const loginId = row[`LoginID${i}`];
+          const passwordHint = row[`PasswordHint${i}`];
+          const passwordHintIv = row[`PasswordHintIv${i}`];
+
+          if (label || loginId || passwordHint) {
+            credentials.push({
+              label: String(label || ""),
+              loginId: String(loginId || ""),
+              passwordHint: String(passwordHint || ""),
+              passwordHintIv: passwordHintIv
+                ? String(passwordHintIv)
+                : undefined,
+            });
+          }
+        }
+
+        // 入力データの構築
+        const recordData = {
+          title: String(row.Title),
+          url: row.URL ? String(row.URL) : "",
+          memo: row.Memo ? String(row.Memo) : "",
+          visibility: row.Visibility === "SHARED" ? "SHARED" : "PRIVATE",
+          credentials,
+          tags,
+        };
+
+        // Zodスキーマでバリデーション
+        const parseResult = RecordInputSchema.safeParse(recordData);
+        if (!parseResult.success) {
+          const errorMessage = parseResult.error.issues
+            .map((i) => i.message)
+            .join(", ");
+          failures.push({ row: rowNum, reason: errorMessage });
+          continue;
+        }
+
+        validRecords.push(parseResult.data);
+      } catch (err) {
+        failures.push({
+          row: rowNum,
+          reason: err instanceof Error ? err.message : "不明なエラー",
+        });
+      }
+    }
+
+    // 2. 正常なレコードのみをトランザクションで登録
+    let successes = 0;
+    if (validRecords.length > 0) {
+      await db.$transaction(
+        async (tx) => {
+          for (const record of validRecords) {
+            await tx.serviceRecord.create({
+              data: {
+                userId: user.id,
+                familyId,
+                title: record.title,
+                url: record.url || null,
+                memo: record.memo || null,
+                visibility: record.visibility,
+                credentials: {
+                  create: record.credentials.map((cred) => ({
+                    label: cred.label,
+                    loginId: cred.loginId,
+                    passwordHint: cred.passwordHint,
+                    passwordHintIv: cred.passwordHintIv,
+                  })),
+                },
+                tags: {
+                  create: record.tags.map((tagName: string) => ({
+                    tagName,
+                  })),
+                },
+              },
+            });
+            successes++;
+          }
+        },
+        { timeout: 30000 },
+      );
+    }
+
+    return { successes, failures };
   });

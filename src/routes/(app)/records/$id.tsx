@@ -117,9 +117,11 @@ function RecordDetailComponent() {
     record.visibility,
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingOgp, setIsFetchingOgp] = useState(false);
 
   const handleUrlBlur = async () => {
     if (!url) return;
+    setIsFetchingOgp(true);
     try {
       const ogp = await getOgpInfoFn({ data: { url } });
       if (ogp.title && !title) setTitle(ogp.title);
@@ -127,7 +129,14 @@ function RecordDetailComponent() {
       if (ogp.description) setOgpDescription(ogp.description);
     } catch (e) {
       console.error("Failed to fetch OGP info", e);
+    } finally {
+      setIsFetchingOgp(false);
     }
+  };
+
+  const handleRemoveCredential = (indexToRemove: number) => {
+    if (credentials.length <= 1) return;
+    setCredentials(credentials.filter((_, i) => i !== indexToRemove));
   };
 
   const handleAddCredential = () => {
@@ -339,14 +348,22 @@ function RecordDetailComponent() {
                 >
                   URL
                 </label>
-                <input
-                  id="url-input"
-                  type="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onBlur={handleUrlBlur}
-                  className="mt-1 w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
+                <div className="relative">
+                  <input
+                    id="url-input"
+                    type="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onBlur={handleUrlBlur}
+                    className="mt-1 w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                  {isFetchingOgp && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-muted-foreground text-xs mt-0.5">
+                      <Spinner className="h-3 w-3" />
+                      <span>情報取得中...</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label
@@ -361,7 +378,7 @@ function RecordDetailComponent() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  className="mt-1 w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                 />
               </div>
             </div>
@@ -385,8 +402,18 @@ function RecordDetailComponent() {
                 <div
                   // biome-ignore lint/suspicious/noArrayIndexKey: input label
                   key={index}
-                  className="rounded-md bg-muted/50 p-5 shadow-border-light relative"
+                  className="rounded-md bg-muted/50 p-5 shadow-border-light relative group"
                 >
+                  {credentials.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCredential(index)}
+                      className="absolute right-3 top-3 text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      title="このアカウント情報を削除"
+                    >
+                      削除
+                    </button>
+                  )}
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
                       <label
@@ -404,7 +431,7 @@ function RecordDetailComponent() {
                           newCreds[index].label = e.target.value;
                           setCredentials(newCreds);
                         }}
-                        className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                        className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                       />
                     </div>
                     <div>
@@ -423,7 +450,7 @@ function RecordDetailComponent() {
                           newCreds[index].loginId = e.target.value;
                           setCredentials(newCreds);
                         }}
-                        className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
+                        className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 font-mono"
                       />
                     </div>
                     <div>
@@ -442,7 +469,7 @@ function RecordDetailComponent() {
                           newCreds[index].passwordHint = e.target.value;
                           setCredentials(newCreds);
                         }}
-                        className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                        className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                       />
                     </div>
                   </div>
@@ -465,7 +492,7 @@ function RecordDetailComponent() {
                 onChange={(e) =>
                   setVisibility(e.target.value as "PRIVATE" | "SHARED")
                 }
-                className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               >
                 <option value="PRIVATE">自分のみ (Private)</option>
                 <option value="SHARED">家族と共有 (Shared)</option>
@@ -483,7 +510,7 @@ function RecordDetailComponent() {
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               />
             </div>
             <div>
@@ -498,7 +525,7 @@ function RecordDetailComponent() {
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
                 rows={3}
-                className="w-full rounded-md bg-card p-2 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               />
             </div>
           </section>

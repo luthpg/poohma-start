@@ -8,6 +8,7 @@ import {
   Moon,
   Sun,
   Upload,
+  UserCog,
   Users,
 } from "lucide-react";
 import Papa from "papaparse";
@@ -40,6 +41,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
 import { logout } from "@/services/auth.functions";
 import {
   exportRecordsCsv,
@@ -190,10 +192,31 @@ export function UserMenu({
             }),
           );
 
-          await importRecordsCsv({
+          const response = await importRecordsCsv({
             data: encryptedData as Record<string, unknown>[],
           });
-          toast.success(`${results.data.length}件のデータをインポートしました`);
+
+          if (response.failures && response.failures.length > 0) {
+            toast.error(
+              <div className="flex flex-col gap-1">
+                <p className="font-semibold">
+                  {response.successes}件成功、{response.failures.length}件失敗
+                </p>
+                <ul className="max-h-32 overflow-y-auto text-xs space-y-1 mt-1 opacity-90 list-disc list-inside">
+                  {response.failures.map((f) => (
+                    <li key={`failure-${f.row}`}>
+                      {f.row}行目: {f.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>,
+              { duration: 10000 },
+            );
+          } else {
+            toast.success(
+              `${response.successes}件のデータをインポートしました`,
+            );
+          }
           await router.invalidate();
         } catch (error) {
           console.error(error);
@@ -248,6 +271,12 @@ export function UserMenu({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
+              <Link to="/settings" className="cursor-pointer">
+                <UserCog className="mr-2 h-4 w-4" />
+                <span>アカウント設定</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <Link to="/family" className="cursor-pointer">
                 <Users className="mr-2 h-4 w-4" />
                 <span>家族管理</span>
@@ -267,15 +296,27 @@ export function UserMenu({
                     onClick={handleExport}
                     disabled={isExporting}
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    <span>CSVエクスポート</span>
+                    {isExporting ? (
+                      <Spinner className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    <span>
+                      {isExporting ? "エクスポート中..." : "CSVエクスポート"}
+                    </span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isImporting}
                   >
-                    <Upload className="mr-2 h-4 w-4" />
-                    <span>CSVインポート</span>
+                    {isImporting ? (
+                      <Spinner className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    <span>
+                      {isImporting ? "インポート中..." : "CSVインポート"}
+                    </span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>

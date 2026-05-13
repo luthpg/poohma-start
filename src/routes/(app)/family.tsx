@@ -2,17 +2,23 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { usePasscode } from "@/components/PasscodeProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   deriveKeyFromPasscode,
+  encrypt,
   generateMasterKey,
   generateSalt,
+  unwrapMasterKey,
   wrapMasterKey,
 } from "@/lib/crypto";
 import {
+  changeFamilyFn,
   createFamilyFn,
+  getFamilyInfoByInviteCodeFn,
   getFamilyMembersFn,
+  getRecordsForReEncryptionFn,
   joinFamilyFn,
 } from "@/services/family.functions";
 
@@ -76,12 +82,139 @@ function FamilyComponent() {
   const [createPasscode, setCreatePasscode] = useState("");
   const [createPasscodeConfirm, setCreatePasscodeConfirm] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [joinPasscode, setJoinPasscode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showCreatePasscode, setShowCreatePasscode] = useState(false);
   const [showCreatePasscodeConfirm, setShowCreatePasscodeConfirm] =
     useState(false);
+  const [showJoinPasscode, setShowJoinPasscode] = useState(false);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const { masterKey, requireUnlock, decryptHint } = usePasscode();
+  const [isChangingFamily, setIsChangingFamily] = useState(false);
+
+  const handleChangeFamily = async (
+    action: "create" | "join",
+    e: React.SubmitEvent,
+  ) => {
+    e.preventDefault();
+    if (action === "create") {
+      if (createPasscode.length < 4) {
+        toast.error("パスコードは4文字以上にしてください");
+        return;
+      }
+      if (createPasscode !== createPasscodeConfirm) {
+        toast.error("パスコードが一致しません");
+        return;
+      }
+    } else {
+      if (!joinCode || joinPasscode.length < 4) {
+        toast.error("招待コードとパスコードを入力してください");
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    try {
+      // 1. セッションに旧マスターキーがあるか確認、なければロック解除を要求
+      if (!masterKey) {
+        const unlocked = await requireUnlock();
+        if (!unlocked) {
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 2. 新しいマスターキーの準備
+      let newMasterKeyEncrypted: string | undefined;
+      let newMasterKeyIv: string | undefined;
+      let newMasterKeySalt: string | undefined;
+      let newMasterKey: CryptoKey;
+
+      if (action === "create") {
+        const salt = generateSalt();
+        const passcodeKey = await deriveKeyFromPasscode(createPasscode, salt);
+        newMasterKey = await generateMasterKey();
+        const wrapped = await wrapMasterKey(newMasterKey, passcodeKey);
+
+        newMasterKeyEncrypted = wrapped.encrypted;
+        newMasterKeyIv = wrapped.iv;
+        newMasterKeySalt = salt;
+      } else {
+        const existingFamily = await getFamilyInfoByInviteCodeFn({
+          data: { inviteCode: joinCode },
+        });
+        if (
+          !existingFamily.masterKeyEncrypted ||
+          !existingFamily.masterKeyIv ||
+          !existingFamily.masterKeySalt
+        ) {
+          throw new Error("既存家族の暗号化情報が不正です");
+        }
+        const wrappingKey = await deriveKeyFromPasscode(
+          joinPasscode,
+          existingFamily.masterKeySalt,
+        );
+        newMasterKey = await unwrapMasterKey(
+          existingFamily.masterKeyEncrypted,
+          existingFamily.masterKeyIv,
+          wrappingKey,
+        );
+      }
+
+      // 3. 所有するレコードの再暗号化
+      const recordsToReEncrypt = await getRecordsForReEncryptionFn();
+      const reEncryptedCredentials: {
+        id: string;
+        passwordHint: string;
+        passwordHintIv: string;
+      }[] = [];
+
+      for (const record of recordsToReEncrypt) {
+        for (const cred of record.credentials) {
+          if (cred.passwordHint && cred.passwordHintIv) {
+            // 復号
+            const plainHint = await decryptHint(
+              cred.passwordHint,
+              cred.passwordHintIv,
+            );
+            // 新しいマスターキーで暗号化
+            const { encrypted, iv } = await encrypt(plainHint, newMasterKey);
+            reEncryptedCredentials.push({
+              id: cred.id,
+              passwordHint: encrypted,
+              passwordHintIv: iv,
+            });
+          }
+        }
+      }
+
+      // 4. サーバーへ送信
+      await changeFamilyFn({
+        data: {
+          action,
+          name: action === "create" ? createName : undefined,
+          masterKeyEncrypted: newMasterKeyEncrypted,
+          masterKeyIv: newMasterKeyIv,
+          masterKeySalt: newMasterKeySalt,
+          inviteCode: action === "join" ? joinCode : undefined,
+          credentials: reEncryptedCredentials,
+        },
+      });
+
+      toast.success("家族グループを変更し、データを移行しました");
+      setIsChangingFamily(false);
+      await router.invalidate();
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "家族の変更に失敗しました（パスコードが間違っている可能性があります）",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (createPasscode.length < 4) {
       toast.error("パスコードは4文字以上にしてください");
@@ -116,7 +249,7 @@ function FamilyComponent() {
     }
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
+  const handleJoin = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
@@ -143,7 +276,7 @@ function FamilyComponent() {
         </Link>
       </div>
 
-      {family ? (
+      {family && !isChangingFamily ? (
         <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
           <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
             <h2 className="text-[18px] font-semibold tracking-geist-ui text-foreground">
@@ -191,154 +324,253 @@ function FamilyComponent() {
               ))}
             </ul>
           </div>
+          <div className="mt-8 border-t border-border pt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsChangingFamily(true)}
+              className="text-[14px] font-medium text-red-500 hover:text-red-600 transition underline underline-offset-4"
+            >
+              家族グループを変更・脱退する
+            </button>
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              ※あなたが所有するパスワードヒントは新しいグループのパスコードで再暗号化され、元の家族からは見られなくなります。
+            </p>
+          </div>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* 家族を作成 */}
-          <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
-            <h2 className="mb-6 text-[18px] font-semibold tracking-geist-ui text-foreground">
-              家族グループを作成
-            </h2>
-            <form onSubmit={handleCreate} className="space-y-5">
-              <div>
-                <label
-                  htmlFor="family-name-input"
-                  className="mb-1.5 block text-[14px] font-medium text-foreground"
+        <div className="space-y-6">
+          {!family ? (
+            <div className="rounded-lg bg-orange-500/10 p-4 border border-orange-500/20">
+              <h2 className="text-[16px] font-semibold text-orange-700 dark:text-orange-400 mb-2">
+                はじめに：家族グループの作成・参加
+              </h2>
+              <p className="text-[14px] text-orange-700/80 dark:text-orange-400/80 leading-relaxed">
+                PoohMaは家族間でのアカウント情報の共有を前提としています。
+                <br />
+                ダッシュボードやその他の機能を利用するには、まず家族グループを作成するか、既存の家族グループに参加してください。
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-red-500/10 p-4 border border-red-500/20 mb-6">
+              <div className="flex justify-between items-start mb-2">
+                <h2 className="text-[16px] font-semibold text-red-700 dark:text-red-400">
+                  家族グループの変更
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsChangingFamily(false)}
+                  className="text-[14px] px-3 py-1 bg-background rounded-md border shadow-sm text-foreground hover:bg-accent transition"
                 >
-                  グループ名
-                </label>
-                <input
-                  type="text"
-                  id="family-name-input"
-                  required
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  placeholder="例: 田中家"
-                  className="w-full rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
+                  キャンセル
+                </button>
               </div>
-              <div>
-                <label
-                  htmlFor="family-passcode-input"
-                  className="mb-1.5 block text-[14px] font-medium text-foreground"
-                >
-                  パスコード <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showCreatePasscode ? "text" : "password"}
-                    id="family-passcode-input"
-                    required
-                    minLength={4}
-                    value={createPasscode}
-                    onChange={(e) => setCreatePasscode(e.target.value)}
-                    placeholder="4文字以上"
-                    className="w-full rounded-md bg-card p-2.5 text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCreatePasscode(!showCreatePasscode)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
-                  >
-                    {showCreatePasscode ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                <p className="mt-1.5 text-[12px] text-muted-foreground">
-                  暗号化に使用します。忘れるとヒントを復元できません。
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="family-passcode-confirm-input"
-                  className="mb-1.5 block text-[14px] font-medium text-foreground"
-                >
-                  パスコード（確認）
-                </label>
-                <div className="relative">
-                  <input
-                    type={showCreatePasscodeConfirm ? "text" : "password"}
-                    id="family-passcode-confirm-input"
-                    required
-                    minLength={4}
-                    value={createPasscodeConfirm}
-                    onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
-                    placeholder="もう一度入力"
-                    className="w-full rounded-md bg-card p-2.5 text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowCreatePasscodeConfirm(!showCreatePasscodeConfirm)
-                    }
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
-                  >
-                    {showCreatePasscodeConfirm ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex items-center justify-center w-full rounded-md bg-orange-500 px-4 py-2.5 text-[14px] font-medium text-white shadow-border transition hover:bg-orange-600 disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <>
-                    <Spinner className="mr-2 h-4 w-4" />
-                    作成中...
-                  </>
-                ) : (
-                  "作成する"
-                )}
-              </button>
-            </form>
-          </div>
+              <p className="text-[14px] text-red-700/80 dark:text-red-400/80 leading-relaxed">
+                新しい家族を作成するか、別の家族の招待コードを入力して参加してください。
+                <br />
+                <strong>注意:</strong>{" "}
+                あなたが所有するパスワードヒントは、自動的に新しいグループ用に再暗号化されます。現在のパスコードの入力が求められる場合があります。
+              </p>
+            </div>
+          )}
 
-          {/* 家族に参加 */}
-          <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
-            <h2 className="mb-6 text-[18px] font-semibold tracking-geist-ui text-foreground">
-              既存の家族に参加
-            </h2>
-            <form onSubmit={handleJoin} className="space-y-5">
-              <div>
-                <label
-                  htmlFor="family-join-input"
-                  className="mb-1.5 block text-[14px] font-medium text-foreground"
-                >
-                  招待コード
-                </label>
-                <input
-                  id="family-join-input"
-                  type="text"
-                  required
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="w-full font-mono rounded-md bg-card p-2.5 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex items-center justify-center w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* 家族を作成 */}
+            <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
+              <h2 className="mb-6 text-[18px] font-semibold tracking-geist-ui text-foreground">
+                家族グループを作成
+              </h2>
+              <form
+                onSubmit={
+                  isChangingFamily
+                    ? (e) => handleChangeFamily("create", e)
+                    : handleCreate
+                }
+                className="space-y-5"
               >
-                {isLoading ? (
-                  <>
-                    <Spinner className="mr-2 h-4 w-4" />
-                    参加中...
-                  </>
-                ) : (
-                  "参加する"
+                <div>
+                  <label
+                    htmlFor="family-name-input"
+                    className="mb-1.5 block text-[14px] font-medium text-foreground"
+                  >
+                    グループ名
+                  </label>
+                  <input
+                    type="text"
+                    id="family-name-input"
+                    required
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    placeholder="例: 田中家"
+                    className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="family-passcode-input"
+                    className="mb-1.5 block text-[14px] font-medium text-foreground"
+                  >
+                    パスコード <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCreatePasscode ? "text" : "password"}
+                      id="family-passcode-input"
+                      required
+                      minLength={4}
+                      value={createPasscode}
+                      onChange={(e) => setCreatePasscode(e.target.value)}
+                      placeholder="4文字以上"
+                      className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePasscode(!showCreatePasscode)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                    >
+                      {showCreatePasscode ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-[12px] text-muted-foreground">
+                    暗号化に使用します。忘れるとヒントを復元できません。
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="family-passcode-confirm-input"
+                    className="mb-1.5 block text-[14px] font-medium text-foreground"
+                  >
+                    パスコード（確認）
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCreatePasscodeConfirm ? "text" : "password"}
+                      id="family-passcode-confirm-input"
+                      required
+                      minLength={4}
+                      value={createPasscodeConfirm}
+                      onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
+                      placeholder="もう一度入力"
+                      className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowCreatePasscodeConfirm(!showCreatePasscodeConfirm)
+                      }
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                    >
+                      {showCreatePasscodeConfirm ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex items-center justify-center w-full rounded-md bg-orange-500 px-4 py-2.5 text-[14px] font-medium text-white shadow-border transition hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4" />
+                      作成中...
+                    </>
+                  ) : (
+                    "作成する"
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* 家族に参加 */}
+            <div className="rounded-lg bg-card p-6 shadow-card transition-shadow">
+              <h2 className="mb-6 text-[18px] font-semibold tracking-geist-ui text-foreground">
+                既存の家族に参加
+              </h2>
+              <form
+                onSubmit={
+                  isChangingFamily
+                    ? (e) => handleChangeFamily("join", e)
+                    : handleJoin
+                }
+                className="space-y-5"
+              >
+                <div>
+                  <label
+                    htmlFor="family-join-input"
+                    className="mb-1.5 block text-[14px] font-medium text-foreground"
+                  >
+                    招待コード
+                  </label>
+                  <input
+                    id="family-join-input"
+                    type="text"
+                    required
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value)}
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    className="w-full font-mono rounded-md bg-card p-2.5 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  />
+                </div>
+                {isChangingFamily && (
+                  <div>
+                    <label
+                      htmlFor="family-join-passcode-input"
+                      className="mb-1.5 block text-[14px] font-medium text-foreground"
+                    >
+                      新しい家族のパスコード{" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showJoinPasscode ? "text" : "password"}
+                        id="family-join-passcode-input"
+                        required
+                        minLength={4}
+                        value={joinPasscode}
+                        onChange={(e) => setJoinPasscode(e.target.value)}
+                        placeholder="4文字以上"
+                        className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinPasscode(!showJoinPasscode)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                      >
+                        {showJoinPasscode ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[12px] text-muted-foreground">
+                      移行先の家族のパスコードを入力してください。
+                    </p>
+                  </div>
                 )}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex items-center justify-center w-full rounded-md bg-foreground px-4 py-2.5 text-[14px] font-medium text-background shadow-border transition hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4" />
+                      参加中...
+                    </>
+                  ) : (
+                    "参加する"
+                  )}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}

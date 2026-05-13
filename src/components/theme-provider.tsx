@@ -15,7 +15,7 @@ type ThemeProviderState = {
 };
 
 function escapeUnsafeScriptChars(str: string) {
-  return str.replace(/[<>\u2028\u2029\/\b\f\n\r\t\0]/g, (ch) => {
+  return str.replace(/[<>\u2028\u2029/\b\f\n\r\t\0]/g, (ch) => {
     switch (ch) {
       case "<":
         return "\\u003C";

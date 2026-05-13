@@ -4,7 +4,7 @@
 
 const ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
-const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_ITERATIONS = 300000;
 
 /**
  * 文字列を Uint8Array に変換

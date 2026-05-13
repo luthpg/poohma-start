@@ -11,6 +11,14 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import {
   decrypt,
   deriveKeyFromPasscode,
   encrypt,
@@ -128,7 +136,7 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isLocked, user]);
 
-  const handleUnlockSubmit = async (e: React.FormEvent) => {
+  const handleUnlockSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     const success = await unlock(passcode);
     if (success) {
@@ -212,62 +220,73 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
 
-      {/* 簡易的なパスコード入力モーダル */}
-      {isPromptOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-2xl">
-            <h2 className="mb-2 text-2xl font-bold tracking-tight">
+      <Dialog open={isPromptOpen} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold tracking-tight">
               家族パスコードの入力
-            </h2>
-            <p className="mb-6 text-sm text-muted-foreground">
+            </DialogTitle>
+            <DialogDescription>
               暗号化されたデータの読み書きを行うには、
               {user?.family?.name || "家族"}
               のパスコードを入力してください。
-            </p>
-            <form onSubmit={handleUnlockSubmit} className="space-y-4">
-              <div className="relative">
-                <input
-                  ref={passcodeInputRef}
-                  type={showPasscode ? "text" : "password"}
-                  className="w-full rounded-lg border bg-background px-4 py-3 text-lg pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="パスコード"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  disabled={isUnlocking}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasscode(!showPasscode)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-muted-foreground hover:text-foreground"
-                >
-                  {showPasscode ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelUnlock}
-                  className="flex-1 rounded-lg border bg-background py-3 font-semibold text-foreground shadow-sm transition-all hover:bg-muted disabled:opacity-50"
-                  disabled={isUnlocking}
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 rounded-lg bg-primary py-3 font-semibold text-primary-foreground shadow-lg transition-all hover:opacity-90 disabled:opacity-50"
-                  disabled={isUnlocking || !passcode}
-                >
-                  {isUnlocking ? "処理中..." : "ロック解除"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUnlockSubmit} className="space-y-4 pt-4">
+            <div className="relative">
+              <input
+                ref={passcodeInputRef}
+                type={showPasscode ? "text" : "password"}
+                className="w-full rounded-lg border bg-background px-4 py-3 text-lg pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder="パスコード"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                disabled={isUnlocking}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPasscode(!showPasscode)}
+                className="absolute inset-y-0 right-0 flex items-center pr-4 text-muted-foreground hover:text-foreground"
+              >
+                {showPasscode ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelUnlock}
+                className="flex-1 rounded-lg border bg-background py-3 font-semibold text-foreground shadow-sm transition-all hover:bg-muted disabled:opacity-50"
+                disabled={isUnlocking}
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                className="flex-1 flex items-center justify-center rounded-lg bg-primary py-3 font-semibold text-primary-foreground shadow-lg transition-all hover:opacity-90 disabled:opacity-50"
+                disabled={isUnlocking || !passcode}
+              >
+                {isUnlocking ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4 text-primary-foreground" />
+                    処理中...
+                  </>
+                ) : (
+                  "ロック解除"
+                )}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </PasscodeContext.Provider>
   );
 }

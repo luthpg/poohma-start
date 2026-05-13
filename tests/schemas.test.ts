@@ -64,4 +64,87 @@ describe("RecordInputSchema", () => {
     const result = RecordInputSchema.safeParse(validData);
     expect(result.success).toBe(true);
   });
+
+  // --- .max() バリデーション ---
+
+  it("should fail if title exceeds 255 characters", () => {
+    const invalidData = {
+      title: "a".repeat(256),
+      visibility: "PRIVATE",
+      credentials: [],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        "タイトルは255文字以内で入力してください",
+      );
+    }
+  });
+
+  it("should allow title with exactly 255 characters", () => {
+    const validData = {
+      title: "a".repeat(255),
+      visibility: "PRIVATE",
+      credentials: [],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(validData);
+    expect(result.success).toBe(true);
+  });
+
+  it("should fail if tag exceeds 50 characters", () => {
+    const invalidData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [],
+      tags: ["a".repeat(51)],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        "タグは50文字以内で入力してください",
+      );
+    }
+  });
+
+  it("should fail if credential label exceeds 100 characters", () => {
+    const invalidData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [{ label: "a".repeat(101) }],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        "ラベルは100文字以内で入力してください",
+      );
+    }
+  });
+
+  it("should fail if credential loginId exceeds 255 characters", () => {
+    const invalidData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [{ loginId: "a".repeat(256) }],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        "ログインIDは255文字以内で入力してください",
+      );
+    }
+  });
 });
+
