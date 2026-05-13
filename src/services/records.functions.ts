@@ -81,6 +81,10 @@ export const getRecords = createServerFn({ method: "GET" })
       skip,
       take: limit + 1, // 次のページがあるか確認するために1件多く取得
       include: {
+        credentials: {
+          select: { loginId: true },
+          orderBy: { createdAt: "asc" },
+        },
         tags: true,
         user: { select: { displayName: true } },
       },
@@ -88,7 +92,13 @@ export const getRecords = createServerFn({ method: "GET" })
     });
 
     const hasNextPage = records.length > limit;
-    const items = hasNextPage ? records.slice(0, limit) : records;
+    const rawItems = hasNextPage ? records.slice(0, limit) : records;
+
+    // オーナーシップ情報を付与
+    const items = rawItems.map((r) => ({
+      ...r,
+      isOwner: r.userId === user.id,
+    }));
 
     return {
       items,
@@ -108,6 +118,7 @@ export const getRecordDetail = createServerFn({ method: "GET" })
       include: {
         credentials: true,
         tags: true,
+        user: { select: { displayName: true, email: true } },
       },
     });
 
@@ -123,7 +134,7 @@ export const getRecordDetail = createServerFn({ method: "GET" })
       throw new Error("Forbidden: You cannot view this record");
     }
 
-    return { ...record, isEditable: isOwner || isFamilyShared };
+    return { ...record, isOwner, isEditable: isOwner || isFamilyShared };
   });
 
 /**

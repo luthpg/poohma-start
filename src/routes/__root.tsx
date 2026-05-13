@@ -27,22 +27,71 @@ export interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
-      {
-        charSet: "utf-8",
-      },
+      { charSet: "utf-8" },
       {
         name: "viewport",
         content: "width=device-width, initial-scale=1",
       },
+      { title: "PoohMa — 家族で使えるアカウント管理" },
       {
-        title: "PoohMa",
+        name: "description",
+        content:
+          "PoohMaは家族でアカウント情報を安全に共有・管理できるWebアプリです。暗号化で大切なパスワードヒントを守ります。",
       },
+      // OGP
+      { property: "og:type", content: "website" },
+      {
+        property: "og:title",
+        content: "PoohMa — 家族で使えるアカウント管理",
+      },
+      {
+        property: "og:description",
+        content:
+          "家族でアカウント情報を安全に共有・管理。パスワードのヒントを暗号化して安全に管理しよう！",
+      },
+      { property: "og:image", content: "/android-chrome-512x512.png" },
+      { property: "og:site_name", content: "PoohMa" },
+      { property: "og:locale", content: "ja_JP" },
+      // Twitter Card
+      { name: "twitter:card", content: "summary" },
+      {
+        name: "twitter:title",
+        content: "PoohMa — 家族で使えるアカウント管理",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "家族でアカウント情報を安全に共有・管理。E2E暗号化対応のパスワードマネージャー。",
+      },
+      { name: "twitter:image", content: "/android-chrome-512x512.png" },
+      // PWA / Mobile
+      { name: "theme-color", content: "#f97316" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      {
+        name: "apple-mobile-web-app-status-bar-style",
+        content: "default",
+      },
+      { name: "apple-mobile-web-app-title", content: "PoohMa" },
+      { name: "format-detection", content: "telephone=no" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       {
-        rel: "stylesheet",
-        href: appCss,
+        rel: "icon",
+        href: "/icon-32x32.png",
+        type: "image/png",
+        sizes: "32x32",
       },
+      {
+        rel: "icon",
+        href: "/icon-192x192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.json" },
     ],
   }),
 
