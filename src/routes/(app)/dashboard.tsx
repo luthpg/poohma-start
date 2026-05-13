@@ -125,11 +125,67 @@ function DashboardPending() {
 
 const routeApi = getRouteApi("/(app)/dashboard");
 
-type SortParam = "name-asc" | "name-desc" | "url-asc" | "url-desc";
+type SortParam =
+  | "name-asc"
+  | "name-desc"
+  | "url-asc"
+  | "url-desc"
+  | "updatedAt-desc";
 
 function RouteComponent() {
   const { availableTags, user, searchParams } = routeApi.useLoaderData();
   const navigate = useNavigate({ from: "/dashboard" });
+
+  // URLパラメータとlocalStorageの同期
+  useEffect(() => {
+    const STORAGE_KEY_SORT = "poohma_dashboard_sort";
+    const STORAGE_KEY_VIEW = "poohma_dashboard_view";
+
+    const lsSort = localStorage.getItem(STORAGE_KEY_SORT);
+    const lsView = localStorage.getItem(STORAGE_KEY_VIEW);
+
+    const currentSort = searchParams.sort;
+    const currentView = searchParams.view;
+
+    let nextSort = currentSort;
+    let nextView = currentView;
+    let needsUpdate = false;
+
+    // 1. ソート順の同期
+    if (currentSort) {
+      // URLに指定がある場合はlocalStorageを更新
+      localStorage.setItem(STORAGE_KEY_SORT, currentSort);
+    } else if (lsSort) {
+      // URLになくlocalStorageにある場合はURLを更新
+      nextSort = lsSort as SortParam;
+      needsUpdate = true;
+    } else {
+      // どちらにもない場合はデフォルトを適用
+      nextSort = "name-asc";
+      needsUpdate = true;
+    }
+
+    // 2. ビューモードの同期
+    if (currentView) {
+      // URLに指定がある場合はlocalStorageを更新
+      localStorage.setItem(STORAGE_KEY_VIEW, currentView);
+    } else if (lsView) {
+      // URLになくlocalStorageにある場合はURLを更新
+      nextView = lsView as "card" | "list";
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          sort: nextSort,
+          view: nextView === "card" ? undefined : (nextView as "list"),
+        }),
+        replace: true,
+      });
+    }
+  }, [searchParams.sort, searchParams.view, navigate]);
 
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
