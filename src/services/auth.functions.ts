@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, setCookie } from "@tanstack/react-start/server";
+import { authMiddleware } from "@/services/auth.middleware";
 import { db } from "@/services/db.server";
 import {
   adminAuth,
@@ -114,3 +115,20 @@ export const getAuthUser = createServerFn({ method: "GET" }).handler(
     }
   },
 );
+
+/**
+ * プロフィール（表示名）の更新
+ */
+export const updateProfileFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .inputValidator((data: { displayName: string }) => data)
+  .handler(async ({ data, context: { user } }) => {
+    const updatedUser = await db.user.update({
+      where: { id: user.id },
+      data: {
+        displayName: data.displayName,
+      },
+    });
+
+    return updatedUser;
+  });

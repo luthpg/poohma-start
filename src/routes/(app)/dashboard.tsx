@@ -22,12 +22,13 @@ const searchSchema = z.object({
   sort: z
     .enum(["name-asc", "name-desc", "url-asc", "url-desc", "updatedAt-desc"])
     .optional(),
+  view: z.enum(["card", "list"]).optional(),
 });
 
 export const Route = createFileRoute("/(app)/dashboard")({
   validateSearch: searchSchema,
-  loaderDeps: ({ search: { q, tag, sort } }) => ({ q, tag, sort }),
-  loader: async ({ context, deps: { q, tag, sort } }) => {
+  loaderDeps: ({ search: { q, tag, sort, view } }) => ({ q, tag, sort, view }),
+  loader: async ({ context, deps: { q, tag, sort, view } }) => {
     if (!context.user) {
       throw redirect({ to: "/login" });
     }
@@ -60,7 +61,7 @@ export const Route = createFileRoute("/(app)/dashboard")({
     return {
       availableTags,
       user: context.user,
-      searchParams: { q, tag, sort },
+      searchParams: { q, tag, sort, view },
     };
   },
   pendingComponent: DashboardPending,
@@ -154,22 +155,16 @@ function RouteComponent() {
   }, []);
 
   const [searchInput, setSearchInput] = useState(searchParams.q || "");
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const viewMode = searchParams.view || "card";
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedMode = localStorage.getItem("poohma_view_mode") as
-        | "card"
-        | "list";
-      if (savedMode) {
-        setViewMode(savedMode);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("poohma_view_mode", viewMode);
-  }, [viewMode]);
+  const handleViewModeChange = (newMode: "card" | "list") => {
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        view: newMode === "card" ? undefined : newMode, // card is default, save url space
+      }),
+    });
+  };
 
   const sortParam = (searchParams.sort as SortParam) || "name-asc";
 
@@ -281,7 +276,7 @@ function RouteComponent() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="タグやサービス名で検索..."
-              className="w-full rounded-md bg-card px-4 py-2.5 h-10 text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
+              className="w-full rounded-md bg-card px-4 py-2.5 h-10 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-shadow"
             />
             <button
               type="submit"
@@ -335,7 +330,7 @@ function RouteComponent() {
             <div className="flex items-center rounded-md border border-border/50 bg-card shadow-sm overflow-hidden">
               <button
                 type="button"
-                onClick={() => setViewMode("card")}
+                onClick={() => handleViewModeChange("card")}
                 className={`p-1.5 transition-colors ${viewMode === "card" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                 title="カード表示"
               >
@@ -343,7 +338,7 @@ function RouteComponent() {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode("list")}
+                onClick={() => handleViewModeChange("list")}
                 className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                 title="リスト表示"
               >

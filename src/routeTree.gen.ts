@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as appRouteRouteImport } from './routes/(app)/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as appSettingsRouteImport } from './routes/(app)/settings'
 import { Route as appFamilyRouteImport } from './routes/(app)/family'
 import { Route as appDashboardRouteImport } from './routes/(app)/dashboard'
 import { Route as appRecordsNewRouteImport } from './routes/(app)/records/new'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const appSettingsRoute = appSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => appRouteRoute,
 } as any)
 const appFamilyRoute = appFamilyRouteImport.update({
   id: '/family',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard': typeof appDashboardRoute
   '/family': typeof appFamilyRoute
+  '/settings': typeof appSettingsRoute
   '/records/$id': typeof appRecordsIdRoute
   '/records/new': typeof appRecordsNewRoute
 }
@@ -65,6 +72,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard': typeof appDashboardRoute
   '/family': typeof appFamilyRoute
+  '/settings': typeof appSettingsRoute
   '/records/$id': typeof appRecordsIdRoute
   '/records/new': typeof appRecordsNewRoute
 }
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/(app)/dashboard': typeof appDashboardRoute
   '/(app)/family': typeof appFamilyRoute
+  '/(app)/settings': typeof appSettingsRoute
   '/(app)/records/$id': typeof appRecordsIdRoute
   '/(app)/records/new': typeof appRecordsNewRoute
 }
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard'
     | '/family'
+    | '/settings'
     | '/records/$id'
     | '/records/new'
   fileRoutesByTo: FileRoutesByTo
@@ -93,6 +103,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard'
     | '/family'
+    | '/settings'
     | '/records/$id'
     | '/records/new'
   id:
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/(app)/dashboard'
     | '/(app)/family'
+    | '/(app)/settings'
     | '/(app)/records/$id'
     | '/(app)/records/new'
   fileRoutesById: FileRoutesById
@@ -134,6 +146,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/(app)/settings': {
+      id: '/(app)/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof appSettingsRouteImport
+      parentRoute: typeof appRouteRoute
     }
     '/(app)/family': {
       id: '/(app)/family'
@@ -169,6 +188,7 @@ declare module '@tanstack/react-router' {
 interface appRouteRouteChildren {
   appDashboardRoute: typeof appDashboardRoute
   appFamilyRoute: typeof appFamilyRoute
+  appSettingsRoute: typeof appSettingsRoute
   appRecordsIdRoute: typeof appRecordsIdRoute
   appRecordsNewRoute: typeof appRecordsNewRoute
 }
@@ -176,6 +196,7 @@ interface appRouteRouteChildren {
 const appRouteRouteChildren: appRouteRouteChildren = {
   appDashboardRoute: appDashboardRoute,
   appFamilyRoute: appFamilyRoute,
+  appSettingsRoute: appSettingsRoute,
   appRecordsIdRoute: appRecordsIdRoute,
   appRecordsNewRoute: appRecordsNewRoute,
 }
