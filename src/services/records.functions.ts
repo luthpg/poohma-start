@@ -429,7 +429,9 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
     const familyId = user.familyId;
 
     const failures: { row: number; reason: string }[] = [];
-    const validRecords: z.infer<typeof RecordInputSchema>[] = [];
+    const validRecords: (z.infer<typeof RecordInputSchema> & {
+      originalRow: number;
+    })[] = [];
 
     // 1. 全行のパースとバリデーション
     for (let index = 0; index < rows.length; index++) {
@@ -491,7 +493,7 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
           continue;
         }
 
-        validRecords.push(parseResult.data);
+        validRecords.push({ ...parseResult.data, originalRow: rowNum });
       } catch (err) {
         failures.push({
           row: rowNum,
@@ -503,37 +505,40 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
     // 2. 正常なレコードのみをトランザクションで登録
     let successes = 0;
     if (validRecords.length > 0) {
-      await db.$transaction(
-        async (tx) => {
-          for (const record of validRecords) {
-            await tx.serviceRecord.create({
-              data: {
-                userId: user.id,
-                familyId,
-                title: record.title,
-                url: record.url || null,
-                memo: record.memo || null,
-                visibility: record.visibility,
-                credentials: {
-                  create: record.credentials.map((cred) => ({
-                    label: cred.label,
-                    loginId: cred.loginId,
-                    passwordHint: cred.passwordHint,
-                    passwordHintIv: cred.passwordHintIv,
-                  })),
-                },
-                tags: {
-                  create: record.tags.map((tagName: string) => ({
-                    tagName,
-                  })),
-                },
+      for (const record of validRecords) {
+        try {
+          await db.serviceRecord.create({
+            data: {
+              userId: user.id,
+              familyId,
+              title: record.title,
+              url: record.url || null,
+              memo: record.memo || null,
+              visibility: record.visibility,
+              credentials: {
+                create: record.credentials.map((cred) => ({
+                  label: cred.label,
+                  loginId: cred.loginId,
+                  passwordHint: cred.passwordHint,
+                  passwordHintIv: cred.passwordHintIv,
+                })),
               },
-            });
-            successes++;
-          }
-        },
-        { timeout: 30000 },
-      );
+              tags: {
+                create: record.tags.map((tagName: string) => ({
+                  tagName,
+                })),
+              },
+            },
+          });
+          successes++;
+        } catch (err) {
+          console.error("DB Insert failed for row:", record.originalRow, err);
+          failures.push({
+            row: record.originalRow,
+            reason: "データベースへの保存時にエラーが発生しました",
+          });
+        }
+      }
     }
 
     return { successes, failures };
