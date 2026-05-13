@@ -314,7 +314,8 @@ function RouteComponent() {
       {records.length > 0 && (
         <div className="mb-4 flex items-center justify-between">
           <div className="text-[14px] text-muted-foreground font-medium tracking-geist-ui">
-            {records.length} 件のレコード
+            {records.length}
+            {hasNextPage ? "+" : ""} 件のレコード
           </div>
           <div className="flex items-center gap-3">
             <select
@@ -427,12 +428,18 @@ function ServiceListItem({
           </span>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              record.visibility === "SHARED"
-                ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                : "bg-secondary text-muted-foreground"
+              !record.isOwner
+                ? "bg-purple-100/50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+                : record.visibility === "SHARED"
+                  ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-secondary text-muted-foreground"
             }`}
           >
-            {record.visibility === "SHARED" ? "家族" : "個人"}
+            {!record.isOwner
+              ? "家族レコード"
+              : record.visibility === "SHARED"
+                ? "共有中"
+                : "個人"}
           </span>
         </div>
         {record.url && (
@@ -440,6 +447,24 @@ function ServiceListItem({
             {record.url}
           </span>
         )}
+        {(() => {
+          const loginIds = record.credentials
+            .map((c) => c.loginId)
+            .filter(Boolean);
+          if (loginIds.length === 0) return null;
+          return (
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className="text-[12px] font-mono text-muted-foreground truncate">
+                {loginIds[0]}
+              </span>
+              {loginIds.length > 1 && (
+                <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  +{loginIds.length - 1} ID(s)
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {record.tags.length > 0 && (
@@ -501,14 +526,40 @@ function ServiceCard({
           {/* 公開設定バッジ */}
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] md:text-xs font-medium ${
-              record.visibility === "SHARED"
-                ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                : "bg-secondary text-muted-foreground"
+              !record.isOwner
+                ? "bg-purple-100/50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+                : record.visibility === "SHARED"
+                  ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-secondary text-muted-foreground"
             }`}
           >
-            {record.visibility === "SHARED" ? "家族共有" : "自分のみ"}
+            {!record.isOwner
+              ? "家族レコード"
+              : record.visibility === "SHARED"
+                ? "共有中"
+                : "自分のみ"}
           </span>
         </div>
+
+        {/* ログインID表示 */}
+        {(() => {
+          const loginIds = record.credentials
+            .map((c) => c.loginId)
+            .filter(Boolean);
+          if (loginIds.length === 0) return null;
+          return (
+            <div className="mb-1 md:mb-2 flex items-center gap-1.5 overflow-hidden">
+              <span className="text-[11px] md:text-[12px] font-mono text-muted-foreground truncate">
+                {loginIds[0]}
+              </span>
+              {loginIds.length > 1 && (
+                <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  +{loginIds.length - 1} ID(s)
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* タグ表示 */}
         <div className="mb-0 md:mb-4 flex flex-wrap gap-1">

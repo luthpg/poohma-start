@@ -614,15 +614,29 @@ function RecordDetailComponent() {
               {record.title}
             </h1>
             <span
-              className={`rounded-full px-3 py-1 text-[12px] font-medium tracking-wide uppercase ${
-                record.visibility === "SHARED"
-                  ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "bg-secondary text-muted-foreground"
+              className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-medium tracking-wide uppercase ${
+                !record.isOwner
+                  ? "bg-purple-100/50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+                  : record.visibility === "SHARED"
+                    ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "bg-secondary text-muted-foreground"
               }`}
             >
-              {record.visibility === "SHARED" ? "家族と共有" : "自分のみ"}
+              {!record.isOwner
+                ? "家族レコード"
+                : record.visibility === "SHARED"
+                  ? "共有中"
+                  : "自分のみ"}
             </span>
           </div>
+
+          {/* オーナー情報 */}
+          {record.user?.displayName && (
+            <div className="mb-6 flex items-center gap-2 text-[13px] text-muted-foreground">
+              <span className="font-medium">オーナー:</span>
+              <span>{record.user.displayName} ({record.user.email})</span>
+            </div>
+          )}
 
           {/* タグ */}
           {record.tags.length > 0 && (
