@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RecordInputSchema } from "@/utils/schemas";
 
 describe("RecordInputSchema", () => {
-  it("should validate a valid record", () => {
+  it("should validate a valid record with encrypted hint", () => {
     const validData = {
       title: "Test Service",
       url: "https://example.com",
@@ -14,7 +14,8 @@ describe("RecordInputSchema", () => {
         {
           label: "Admin",
           loginId: "admin@example.com",
-          passwordHint: "Hint",
+          passwordHint: "SGVsbG8gV29ybGQ=", // Base64 encrypted hint
+          passwordHintIv: "dGVzdGl2MTIzNDU2", // Base64 IV
         },
       ],
       tags: ["test", "service"],
@@ -22,6 +23,89 @@ describe("RecordInputSchema", () => {
 
     const result = RecordInputSchema.safeParse(validData);
     expect(result.success).toBe(true);
+  });
+
+  it("should validate a credential without passwordHint", () => {
+    const validData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [
+        {
+          label: "Admin",
+          loginId: "admin@example.com",
+        },
+      ],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(validData);
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject plaintext passwordHint (not Base64)", () => {
+    const invalidData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [
+        {
+          label: "Admin",
+          passwordHint: "my secret hint", // plaintext with spaces
+          passwordHintIv: "dGVzdGl2MTIzNDU2",
+        },
+      ],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject passwordHint without IV", () => {
+    const invalidData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [
+        {
+          label: "Admin",
+          passwordHint: "SGVsbG8gV29ybGQ=",
+          // passwordHintIv is missing
+        },
+      ],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const ivIssue = result.error.issues.find(
+        (i) => i.path.includes("passwordHintIv"),
+      );
+      expect(ivIssue).toBeDefined();
+    }
+  });
+
+  it("should reject IV without passwordHint", () => {
+    const invalidData = {
+      title: "Test",
+      visibility: "PRIVATE",
+      credentials: [
+        {
+          label: "Admin",
+          passwordHintIv: "dGVzdGl2MTIzNDU2",
+          // passwordHint is missing
+        },
+      ],
+      tags: [],
+    };
+
+    const result = RecordInputSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const hintIssue = result.error.issues.find(
+        (i) => i.path.includes("passwordHint"),
+      );
+      expect(hintIssue).toBeDefined();
+    }
   });
 
   it("should fail if title is empty", () => {
@@ -147,4 +231,3 @@ describe("RecordInputSchema", () => {
     }
   });
 });
-
