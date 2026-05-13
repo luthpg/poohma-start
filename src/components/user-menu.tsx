@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logout } from "@/services/auth.functions";
 import {
-  exportRecordsCsv,
+  exportOwnedRecordsCsv,
   importRecordsCsv,
 } from "@/services/records.functions";
 import { auth } from "@/utils/firebase";
@@ -77,7 +77,7 @@ export function UserMenu({
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const data = await exportRecordsCsv();
+      const data = await exportOwnedRecordsCsv();
 
       // Check if there are any encrypted hints
       let hasEncryptedHints = false;

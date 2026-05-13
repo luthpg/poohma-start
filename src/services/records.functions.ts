@@ -323,7 +323,38 @@ export const getAvailableTagsFn = createServerFn({ method: "GET" })
   });
 
 /**
- * 全レコードをエクスポート用の形式で取得
+ * レコードのリストをCSV用のフラットな構造に変換する内部ヘルパー
+ */
+const mapRecordsToCsvRows = (
+  records: Prisma.ServiceRecordGetPayload<{
+    include: { credentials: true; tags: true };
+  }>[],
+) => {
+  return records.map((r) => {
+    const row: Record<string, string> = {
+      Title: r.title,
+      URL: r.url || "",
+      Memo: r.memo || "",
+      Visibility: r.visibility,
+      Tags: r.tags.map((t) => t.tagName).join(","),
+    };
+
+    // 最大10個までの認証情報を列として展開
+    for (let i = 0; i < 10; i++) {
+      const cred = r.credentials[i];
+      const idx = i + 1;
+      row[`Label${idx}`] = cred?.label || "";
+      row[`LoginID${idx}`] = cred?.loginId || "";
+      row[`PasswordHint${idx}`] = cred?.passwordHint || "";
+      row[`PasswordHintIv${idx}`] = cred?.passwordHintIv || "";
+    }
+
+    return row;
+  });
+};
+
+/**
+ * 全レコード（自分＋共有）をエクスポート用の形式で取得
  */
 export const exportRecordsCsv = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -349,28 +380,29 @@ export const exportRecordsCsv = createServerFn({ method: "GET" })
       orderBy: { createdAt: "desc" },
     });
 
-    // CSV用のフラットな構造に変換
-    return records.map((r) => {
-      const row: Record<string, string> = {
-        Title: r.title,
-        URL: r.url || "",
-        Memo: r.memo || "",
-        Visibility: r.visibility,
-        Tags: r.tags.map((t) => t.tagName).join(","),
-      };
+    return mapRecordsToCsvRows(records);
+  });
 
-      // 最大10個までの認証情報を列として展開
-      for (let i = 0; i < 10; i++) {
-        const cred = r.credentials[i];
-        const idx = i + 1;
-        row[`Label${idx}`] = cred?.label || "";
-        row[`LoginID${idx}`] = cred?.loginId || "";
-        row[`PasswordHint${idx}`] = cred?.passwordHint || "";
-        row[`PasswordHintIv${idx}`] = cred?.passwordHintIv || "";
-      }
-
-      return row;
+/**
+ * 自身がオーナーのレコードのみをエクスポート用の形式で取得
+ */
+export const exportOwnedRecordsCsv = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context: { user } }) => {
+    const records = await db.serviceRecord.findMany({
+      where: { userId: user.id },
+      include: {
+        credentials: {
+          orderBy: { createdAt: "asc" },
+        },
+        tags: {
+          orderBy: { tagName: "asc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
     });
+
+    return mapRecordsToCsvRows(records);
   });
 
 /**
