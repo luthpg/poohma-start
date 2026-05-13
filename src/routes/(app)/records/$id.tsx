@@ -634,7 +634,9 @@ function RecordDetailComponent() {
           {record.user?.displayName && (
             <div className="mb-6 flex items-center gap-2 text-[13px] text-muted-foreground">
               <span className="font-medium">オーナー:</span>
-              <span>{record.user.displayName} ({record.user.email})</span>
+              <span>
+                {record.user.displayName} ({record.user.email})
+              </span>
             </div>
           )}
 

@@ -94,6 +94,20 @@ function RouteComponent() {
 
       {/* フッター */}
       <footer className="border-t border-border py-12 text-center text-sm text-muted-foreground">
+        <div className="mb-4 flex justify-center gap-6">
+          <Link
+            to="/terms-of-service"
+            className="hover:text-foreground transition-colors"
+          >
+            利用規約
+          </Link>
+          <Link
+            to="/privacy-policy"
+            className="hover:text-foreground transition-colors"
+          >
+            プライバシーポリシー
+          </Link>
+        </div>
         &copy; 2026 PoohMa - Family Password Hint Manager
       </footer>
     </div>

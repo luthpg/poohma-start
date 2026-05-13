@@ -1,4 +1,9 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useRouter,
+} from "@tanstack/react-router";
 import {
   getRedirectResult,
   onAuthStateChanged,
@@ -142,6 +147,22 @@ function LoginPage() {
             </>
           )}
         </button>
+
+        {/* フッターリンク */}
+        <div className="mt-8 flex justify-center gap-4 text-xs text-muted-foreground">
+          <Link
+            to="/terms-of-service"
+            className="hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            利用規約
+          </Link>
+          <Link
+            to="/privacy-policy"
+            className="hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            プライバシーポリシー
+          </Link>
+        </div>
       </div>
     </div>
   );
