@@ -132,3 +132,67 @@ export const updateProfileFn = createServerFn({ method: "POST" })
 
     return updatedUser;
   });
+
+/**
+ * アカウント（退会）処理
+ * - DBからのユーザーデータ（ServiceRecord, User等）削除
+ * - 所属メンバーが0人になる場合はFamily削除
+ * - Firebase Authからのユーザー削除
+ * - セッションクッキー無効化
+ */
+export const deleteAccountFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context: { user } }) => {
+    // 1. DBトランザクションでデータ削除
+    await db.$transaction(async (tx) => {
+      const familyId = user.familyId;
+
+      // 自身が作成したサービスレコードの削除
+      // AccountCredentialやRecordTagはCascade設定により自動削除される
+      await tx.serviceRecord.deleteMany({
+        where: { userId: user.id },
+      });
+
+      if (familyId) {
+        // 現在の家族メンバー数を取得
+        const familyUserCount = await tx.user.count({
+          where: { familyId },
+        });
+
+        // ユーザー情報を削除
+        await tx.user.delete({
+          where: { id: user.id },
+        });
+
+        // 自身が最後のメンバーだった場合は家族も削除
+        if (familyUserCount <= 1) {
+          await tx.family.delete({
+            where: { id: familyId },
+          });
+        }
+      } else {
+        // ユーザー情報を削除 (家族未所属の場合)
+        await tx.user.delete({
+          where: { id: user.id },
+        });
+      }
+    });
+
+    // 2. Firebase Authからユーザー削除
+    try {
+      await adminAuth().deleteUser(user.id);
+    } catch (error) {
+      console.error("Failed to delete user from Firebase Auth:", error);
+    }
+
+    // 3. セッションクッキーの無効化
+    setCookie("session", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return { success: true };
+  });
