@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { signOut } from "firebase/auth";
 import {
@@ -57,6 +58,7 @@ export function UserMenu({
   };
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -149,6 +151,7 @@ export function UserMenu({
               { id: toastId },
             );
           }
+          await queryClient.invalidateQueries({ queryKey: ["records"] });
           await router.invalidate();
         } catch (error) {
           console.error(error);
