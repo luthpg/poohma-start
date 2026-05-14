@@ -22,8 +22,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { TagInput } from "@/components/ui/tag-input";
 import {
   deleteRecord,
+  getAvailableTagsFn,
   getOgpInfoFn,
   getRecordDetail,
   type getRecords,
@@ -36,7 +38,8 @@ export const Route = createFileRoute("/(app)/records/$id")({
   loader: async ({ params }) => {
     // サーバー関数を呼び出してレコード詳細を取得
     const record = await getRecordDetail({ data: { id: params.id } });
-    return { record };
+    const availableTags = await getAvailableTagsFn();
+    return { record, availableTags };
   },
   pendingComponent: RecordDetailPending,
   component: RecordDetailComponent,
@@ -85,7 +88,7 @@ function RecordDetailPending() {
 const routeApi = getRouteApi("/(app)/records/$id");
 
 function RecordDetailComponent() {
-  const { record } = routeApi.useLoaderData();
+  const { record, availableTags } = routeApi.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -109,9 +112,7 @@ function RecordDetailComponent() {
       passwordHint: c.passwordHint || "",
     })),
   );
-  const [tagsInput, setTagsInput] = useState(
-    record.tags.map((t) => t.tagName).join(", "),
-  );
+  const [tags, setTags] = useState<string[]>(record.tags.map((t) => t.tagName));
   const [memo, setMemo] = useState(record.memo || "");
   const [visibility, setVisibility] = useState<"PRIVATE" | "SHARED">(
     record.visibility,
@@ -201,11 +202,6 @@ function RecordDetailComponent() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const tagsArray = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
       // E2EE: パスワードヒントを暗号化
       const filteredCreds = credentials.filter(
         (c) => c.label || c.loginId || c.passwordHint,
@@ -252,7 +248,7 @@ function RecordDetailComponent() {
             memo: memo || undefined,
             visibility,
             credentials: encryptedCredentials,
-            tags: tagsArray,
+            tags: tags,
           },
         },
       });
@@ -276,7 +272,7 @@ function RecordDetailComponent() {
                     ogpDescription: ogpDescription || null,
                     memo: memo || null,
                     visibility,
-                    tags: tagsArray.map((t) => ({ id: t, tagName: t })),
+                    tags: tags.map((t) => ({ id: t, tagName: t })),
                   };
                 }
                 return r;
@@ -503,14 +499,12 @@ function RecordDetailComponent() {
                 htmlFor="tags-input"
                 className="block text-[14px] font-medium text-foreground mb-1"
               >
-                タグ (カンマ区切り)
+                タグ
               </label>
-              <input
-                id="tags-input"
-                type="text"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+              <TagInput
+                value={tags}
+                onChange={setTags}
+                availableTags={availableTags}
               />
             </div>
             <div>

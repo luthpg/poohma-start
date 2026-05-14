@@ -3,13 +3,20 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { usePasscode } from "@/components/PasscodeProvider";
 import { Spinner } from "@/components/ui/spinner";
-import { createRecord, getOgpInfoFn } from "@/services/records.functions";
+import { TagInput } from "@/components/ui/tag-input";
+import {
+  createRecord,
+  getAvailableTagsFn,
+  getOgpInfoFn,
+} from "@/services/records.functions";
 
 export const Route = createFileRoute("/(app)/records/new")({
+  loader: () => getAvailableTagsFn(),
   component: NewRecordComponent,
 });
 
 function NewRecordComponent() {
+  const availableTags = Route.useLoaderData();
   const navigate = useNavigate();
   const { encryptHint, masterKey, requireUnlock } = usePasscode();
   const [isLoading, setIsLoading] = useState(false);
@@ -26,8 +33,8 @@ function NewRecordComponent() {
     { label: "", loginId: "", passwordHint: "" },
   ]);
 
-  // タグ（カンマ区切り入力用の一時ステート）
-  const [tagsInput, setTagsInput] = useState("");
+  // タグ
+  const [tags, setTags] = useState<string[]>([]);
 
   // OGPダミー情報（本来はCloud Functionsから取得）
   const [ogpImage, setOgpImage] = useState("");
@@ -65,12 +72,6 @@ function NewRecordComponent() {
     setIsLoading(true);
 
     try {
-      // カンマ区切りの文字列を配列に変換
-      const tags = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
       const hasHintsToEncrypt = credentials.some((c) => c.passwordHint);
       if (hasHintsToEncrypt && !masterKey) {
         const unlocked = await requireUnlock();
@@ -306,15 +307,12 @@ function NewRecordComponent() {
               htmlFor="tags-input"
               className="block text-[14px] font-medium text-foreground mb-1"
             >
-              タグ (カンマ区切り)
+              タグ
             </label>
-            <input
-              id="tags-input"
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="動画, サブスク, 仕事"
-              className="w-full rounded-md bg-card p-2 text-base md:text-[14px] shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+            <TagInput
+              value={tags}
+              onChange={setTags}
+              availableTags={availableTags}
             />
           </div>
 
