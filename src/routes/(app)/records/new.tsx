@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/(app)/records/new")({
 function NewRecordComponent() {
   const availableTags = Route.useLoaderData();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { encryptHint, masterKey, requireUnlock } = usePasscode();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingOgp, setIsFetchingOgp] = useState(false);
@@ -114,6 +116,8 @@ function NewRecordComponent() {
           tags,
         },
       });
+      // キャッシュを無効化してダッシュボードに即時反映
+      await queryClient.invalidateQueries({ queryKey: ["records"] });
 
       // 作成成功後、ダッシュボードへ遷移
       await navigate({ to: "/dashboard" });
