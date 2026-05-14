@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { usePasscode } from "@/components/PasscodeProvider";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,8 +22,14 @@ import {
   getRecordsForReEncryptionFn,
   joinFamilyFn,
 } from "@/services/family.functions";
+import { auth } from "@/utils/firebase";
 
 export const Route = createFileRoute("/(app)/family")({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { inviteCode?: string } => ({
+    inviteCode: search.inviteCode as string | undefined,
+  }),
   loader: async () => {
     const family = await getFamilyMembersFn();
     return { family };
@@ -76,12 +83,13 @@ function FamilyPending() {
 
 function FamilyComponent() {
   const { family } = Route.useLoaderData();
+  const search = Route.useSearch();
   const router = useRouter();
 
   const [createName, setCreateName] = useState("");
   const [createPasscode, setCreatePasscode] = useState("");
   const [createPasscodeConfirm, setCreatePasscodeConfirm] = useState("");
-  const [joinCode, setJoinCode] = useState("");
+  const [joinCode, setJoinCode] = useState(search.inviteCode || "");
   const [joinPasscode, setJoinPasscode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showCreatePasscode, setShowCreatePasscode] = useState(false);
@@ -90,7 +98,10 @@ function FamilyComponent() {
   const [showJoinPasscode, setShowJoinPasscode] = useState(false);
 
   const { masterKey, requireUnlock, decryptHint } = usePasscode();
-  const [isChangingFamily, setIsChangingFamily] = useState(false);
+  const [isChangingFamily, setIsChangingFamily] = useState(
+    !!search.inviteCode && !!family,
+  );
+  const autoJoinTriggered = useRef(false);
 
   const handleChangeFamily = async (
     action: "create" | "join",
@@ -249,18 +260,34 @@ function FamilyComponent() {
     }
   };
 
+  const executeJoin = useCallback(
+    async (code: string) => {
+      setIsLoading(true);
+      try {
+        await joinFamilyFn({ data: { inviteCode: code } });
+        toast.success("家族グループに参加しました");
+        await router.invalidate();
+      } catch {
+        toast.error("参加に失敗しました");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [router],
+  );
+
   const handleJoin = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    try {
-      await joinFamilyFn({ data: { inviteCode: joinCode } });
-      await router.invalidate();
-    } catch {
-      toast.error("参加に失敗しました");
-    } finally {
-      setIsLoading(false);
-    }
+    await executeJoin(joinCode);
   };
+
+  // 招待コードがURLにあり、家族未所属の場合は自動で参加を発火
+  useEffect(() => {
+    if (search.inviteCode && !family && !autoJoinTriggered.current) {
+      autoJoinTriggered.current = true;
+      executeJoin(search.inviteCode);
+    }
+  }, [search.inviteCode, family, executeJoin]);
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -287,21 +314,34 @@ function FamilyComponent() {
             <h3 className="mb-3 text-[14px] font-medium text-foreground">
               招待コード
             </h3>
-            <div className="flex items-center gap-3 rounded-md bg-muted/50 p-4 shadow-border-light">
-              <code className="flex-1 font-mono text-[16px] font-semibold text-foreground">
-                {family.id}
-              </code>
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(family.id)}
-                className="rounded-md bg-card px-4 py-1.5 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition"
-              >
-                コピー
-              </button>
+            <div className="flex flex-col md:flex-row items-center gap-6 rounded-md bg-muted/50 p-6 shadow-border-light">
+              <div className="bg-white p-2 rounded-md shadow-sm">
+                <QRCodeSVG
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/family?inviteCode=${family.id}`}
+                  size={120}
+                />
+              </div>
+              <div className="flex-1 w-full space-y-3">
+                <div className="flex items-center gap-3">
+                  <code className="flex-1 font-mono text-[14px] md:text-[16px] font-semibold text-foreground bg-card p-2.5 rounded-md shadow-sm border border-border">
+                    {family.id}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(family.id);
+                      toast.success("コピーしました");
+                    }}
+                    className="rounded-md bg-card px-4 py-2.5 text-[14px] font-medium text-foreground shadow-border hover:bg-accent transition whitespace-nowrap"
+                  >
+                    コピー
+                  </button>
+                </div>
+                <p className="text-[13px] text-muted-foreground">
+                  このコードまたはQRコードを家族に共有して参加してもらいます。
+                </p>
+              </div>
             </div>
-            <p className="mt-2 text-[12px] text-muted-foreground">
-              このコードを家族に教えて参加してもらいます。
-            </p>
           </div>
 
           <div>
@@ -309,19 +349,29 @@ function FamilyComponent() {
               メンバー一覧
             </h3>
             <ul className="space-y-3">
-              {family.users.map((u) => (
-                <li
-                  key={u.id}
-                  className="flex items-center justify-between rounded-md bg-card p-4 shadow-border-light"
-                >
-                  <span className="text-[14px] font-medium text-foreground">
-                    {u.displayName || "名無し"}
-                  </span>
-                  <span className="text-[12px] text-muted-foreground">
-                    {u.email}
-                  </span>
-                </li>
-              ))}
+              {family.users.map((u) => {
+                const isMe = auth?.currentUser?.uid === u.id;
+                return (
+                  <li
+                    key={u.id}
+                    className="flex items-center justify-between rounded-md bg-card p-4 shadow-border-light"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-medium text-foreground flex items-center gap-2">
+                        {u.displayName || "名無し"}
+                        {isMe && (
+                          <span className="text-xs bg-muted px-2 py-0.5 rounded-md text-muted-foreground">
+                            あなた
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {u.email}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
           <div className="mt-8 border-t border-border pt-6 text-center">
