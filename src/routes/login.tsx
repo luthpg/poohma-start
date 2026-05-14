@@ -14,8 +14,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { syncUser } from "@/services/auth.functions";
 import { auth, googleProvider } from "@/utils/firebase";
 
-// 既にログイン済みならダッシュボードへ飛ばす
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+    return {
+      redirect: search.redirect as string | undefined,
+    };
+  },
   beforeLoad: ({ context }) => {
     if (context.user) {
       throw redirect({ to: "/dashboard" });
@@ -26,6 +30,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const router = useRouter();
+  const search = Route.useSearch();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +61,19 @@ function LoginPage() {
           const idToken = await user.getIdToken();
           await syncUser({ data: { idToken } });
           await router.invalidate();
-          await router.navigate({ to: "/dashboard" });
+
+          const target =
+            localStorage.getItem("postLoginRedirect") || "/dashboard";
+          localStorage.removeItem("postLoginRedirect");
+          try {
+            const url = new URL(target, window.location.origin);
+            await router.navigate({
+              to: url.pathname,
+              search: Object.fromEntries(url.searchParams),
+            });
+          } catch {
+            await router.navigate({ to: "/dashboard" });
+          }
         } catch (err) {
           console.error("User sync error:", err);
           setError("ユーザー情報の同期に失敗しました。");
@@ -81,6 +98,9 @@ function LoginPage() {
     setError(null);
 
     try {
+      if (search.redirect) {
+        localStorage.setItem("postLoginRedirect", search.redirect);
+      }
       await signInWithRedirect(auth, googleProvider);
     } catch (err) {
       console.error("Login redirect error:", err);

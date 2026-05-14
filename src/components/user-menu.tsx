@@ -78,12 +78,14 @@ export function UserMenu({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const toastId = toast.loading("CSVを解析中...");
     setIsImporting(true);
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
         try {
+          toast.loading("データを処理中...", { id: toastId });
           const data = results.data as Record<string, string>[];
 
           let hasHintsToEncrypt = false;
@@ -139,17 +141,18 @@ export function UserMenu({
                   ))}
                 </ul>
               </div>,
-              { duration: 10000 },
+              { id: toastId, duration: 10000 },
             );
           } else {
             toast.success(
               `${response.successes}件のデータをインポートしました`,
+              { id: toastId },
             );
           }
           await router.invalidate();
         } catch (error) {
           console.error(error);
-          toast.error("インポートに失敗しました");
+          toast.error("インポートに失敗しました", { id: toastId });
         } finally {
           setIsImporting(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
