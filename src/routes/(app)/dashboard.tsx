@@ -12,6 +12,10 @@ import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { UserMenu } from "@/components/user-menu";
+import {
+  getDashboardPrefsFn,
+  setDashboardPrefsFn,
+} from "@/services/prefs.functions";
 import { getAvailableTagsFn, getRecords } from "@/services/records.functions";
 
 type DashboardData = Awaited<ReturnType<typeof getRecords>>;
@@ -27,22 +31,28 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/(app)/dashboard")({
   validateSearch: searchSchema,
+  beforeLoad: async () => {
+    const prefs = await getDashboardPrefsFn();
+    return { prefs };
+  },
   loaderDeps: ({ search: { q, tag, sort, view } }) => ({ q, tag, sort, view }),
   loader: async ({ context, deps: { q, tag, sort, view } }) => {
     if (!context.user) {
       throw redirect({ to: "/login" });
     }
 
+    const effectiveSort = sort || context.prefs.sort;
+
     const [availableTags] = await Promise.all([
       getAvailableTagsFn(),
       context.queryClient.ensureInfiniteQueryData({
-        queryKey: ["records", q, tag, sort],
+        queryKey: ["records", q, tag, effectiveSort],
         queryFn: async ({ pageParam }) => {
           return await getRecords({
             data: {
               q,
               tag,
-              sort,
+              sort: effectiveSort as SortParam,
               page: pageParam as number,
               limit: 20,
             },
@@ -61,6 +71,7 @@ export const Route = createFileRoute("/(app)/dashboard")({
     return {
       availableTags,
       user: context.user,
+      prefs: context.prefs,
       searchParams: { q, tag, sort, view },
     };
   },
@@ -133,59 +144,8 @@ type SortParam =
   | "updatedAt-desc";
 
 function RouteComponent() {
-  const { availableTags, user, searchParams } = routeApi.useLoaderData();
+  const { availableTags, user, prefs, searchParams } = routeApi.useLoaderData();
   const navigate = useNavigate({ from: "/dashboard" });
-
-  // URLパラメータとlocalStorageの同期
-  useEffect(() => {
-    const STORAGE_KEY_SORT = "poohma_dashboard_sort";
-    const STORAGE_KEY_VIEW = "poohma_dashboard_view";
-
-    const lsSort = localStorage.getItem(STORAGE_KEY_SORT);
-    const lsView = localStorage.getItem(STORAGE_KEY_VIEW);
-
-    const currentSort = searchParams.sort;
-    const currentView = searchParams.view;
-
-    let nextSort = currentSort;
-    let nextView = currentView;
-    let needsUpdate = false;
-
-    // 1. ソート順の同期
-    if (currentSort) {
-      // URLに指定がある場合はlocalStorageを更新
-      localStorage.setItem(STORAGE_KEY_SORT, currentSort);
-    } else if (lsSort) {
-      // URLになくlocalStorageにある場合はURLを更新
-      nextSort = lsSort as SortParam;
-      needsUpdate = true;
-    } else {
-      // どちらにもない場合はデフォルトを適用
-      nextSort = "name-asc";
-      needsUpdate = true;
-    }
-
-    // 2. ビューモードの同期
-    if (currentView) {
-      // URLに指定がある場合はlocalStorageを更新
-      localStorage.setItem(STORAGE_KEY_VIEW, currentView);
-    } else if (lsView) {
-      // URLになくlocalStorageにある場合はURLを更新
-      nextView = lsView as "card" | "list";
-      needsUpdate = true;
-    }
-
-    if (needsUpdate) {
-      navigate({
-        search: (prev) => ({
-          ...prev,
-          sort: nextSort,
-          view: nextView === "card" ? undefined : (nextView as "list"),
-        }),
-        replace: true,
-      });
-    }
-  }, [searchParams.sort, searchParams.view, navigate]);
 
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
@@ -211,9 +171,10 @@ function RouteComponent() {
   }, []);
 
   const [searchInput, setSearchInput] = useState(searchParams.q || "");
-  const viewMode = searchParams.view || "card";
+  const viewMode = searchParams.view || prefs.view || "card";
 
   const handleViewModeChange = (newMode: "card" | "list") => {
+    setDashboardPrefsFn({ data: { view: newMode } }).catch(console.error);
     navigate({
       search: (prev) => ({
         ...prev,
@@ -222,9 +183,11 @@ function RouteComponent() {
     });
   };
 
-  const sortParam = (searchParams.sort as SortParam) || "name-asc";
+  const sortParam =
+    (searchParams.sort as SortParam) || (prefs.sort as SortParam) || "name-asc";
 
   const handleSortChange = (newSort: SortParam) => {
+    setDashboardPrefsFn({ data: { sort: newSort } }).catch(console.error);
     navigate({
       search: (prev) => ({
         ...prev,
@@ -235,18 +198,13 @@ function RouteComponent() {
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
-      queryKey: [
-        "records",
-        searchParams.q,
-        searchParams.tag,
-        searchParams.sort,
-      ],
+      queryKey: ["records", searchParams.q, searchParams.tag, sortParam],
       queryFn: async ({ pageParam }) => {
         return await getRecords({
           data: {
             q: searchParams.q,
             tag: searchParams.tag,
-            sort: searchParams.sort,
+            sort: sortParam,
             page: pageParam as number,
             limit: 20,
           },
