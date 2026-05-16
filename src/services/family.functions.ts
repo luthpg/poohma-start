@@ -1,8 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { authMiddleware } from "@/services/auth.middleware";
-import { db } from "@/services/db.server";
-import { adminAuth } from "@/services/firebase-admin.server";
+import { withSession } from "@/services/db.server";
 import {
   ChangeFamilyInputSchema,
   CreateFamilyInputSchema,
@@ -13,14 +12,14 @@ export const getFamilyMembersFn = createServerFn({ method: "GET" })
   .handler(async ({ context: { user } }) => {
     if (!user?.familyId) return null;
 
-    const family = await db.family.findUnique({
-      where: { id: user.familyId },
-      include: {
-        users: { select: { id: true, displayName: true, email: true } },
-      },
+    return await withSession(user.id, user.familyId, async (tx) => {
+      return tx.family.findUnique({
+        where: { id: user.familyId as string },
+        include: {
+          users: { select: { id: true, displayName: true, email: true } },
+        },
+      });
     });
-
-    return family;
   });
 
 export const createFamilyFn = createServerFn({ method: "POST" })
@@ -36,7 +35,7 @@ export const createFamilyFn = createServerFn({ method: "POST" })
       if (user.familyId) throw new Error("Already in a family");
 
       // トランザクションで家族作成とユーザー更新を同時に行う
-      const family = await db.$transaction(async (tx) => {
+      const family = await withSession(user.id, user.familyId, async (tx) => {
         const newFamily = await tx.family.create({
           data: {
             name,
@@ -54,9 +53,6 @@ export const createFamilyFn = createServerFn({ method: "POST" })
         return newFamily;
       });
 
-      // Firebase Custom Claims に family_id をセット
-      await adminAuth().setCustomUserClaims(user.id, { family_id: family.id });
-
       return family;
     },
   );
@@ -67,43 +63,42 @@ export const joinFamilyFn = createServerFn({ method: "POST" })
   .handler(async ({ data: { inviteCode }, context: { user } }) => {
     if (user.familyId) throw new Error("Already in a family");
 
-    const family = await db.family.findUnique({ where: { id: inviteCode } });
-    if (!family) throw new Error("Invalid invite code");
+    return await withSession(user.id, user.familyId, async (tx) => {
+      const family = await tx.family.findUnique({ where: { id: inviteCode } });
+      if (!family) throw new Error("Invalid invite code");
 
-    await db.user.update({
-      where: { id: user.id },
-      data: { familyId: family.id },
+      await tx.user.update({
+        where: { id: user.id },
+        data: { familyId: family.id },
+      });
+
+      return family;
     });
-
-    // Firebase Custom Claims に family_id をセット
-    await adminAuth().setCustomUserClaims(user.id, { family_id: family.id });
-
-    return family;
   });
 
 export const getRecordsForReEncryptionFn = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context: { user } }) => {
     // 自身が作成した全レコードの認証情報を取得（パスワードヒントが存在するもののみ）
-    const records = await db.serviceRecord.findMany({
-      where: { userId: user.id },
-      select: {
-        id: true,
-        credentials: {
-          where: {
-            passwordHint: { not: "" },
-            passwordHintIv: { not: null },
-          },
-          select: {
-            id: true,
-            passwordHint: true,
-            passwordHintIv: true,
+    return await withSession(user.id, user.familyId, async (tx) => {
+      return tx.serviceRecord.findMany({
+        where: { userId: user.id },
+        select: {
+          id: true,
+          credentials: {
+            where: {
+              passwordHint: { not: "" },
+              passwordHintIv: { not: null },
+            },
+            select: {
+              id: true,
+              passwordHint: true,
+              passwordHintIv: true,
+            },
           },
         },
-      },
+      });
     });
-
-    return records;
   });
 
 export const changeFamilyFn = createServerFn({ method: "POST" })
@@ -112,7 +107,7 @@ export const changeFamilyFn = createServerFn({ method: "POST" })
     ChangeFamilyInputSchema.parse(data),
   )
   .handler(async ({ data, context: { user } }) => {
-    return await db.$transaction(async (tx) => {
+    return await withSession(user.id, user.familyId, async (tx) => {
       let targetFamilyId: string;
 
       if (data.action === "create") {
@@ -156,21 +151,21 @@ export const changeFamilyFn = createServerFn({ method: "POST" })
         data: { familyId: targetFamilyId },
       });
 
-      // 再暗号化された認証情報を更新
+      // 再暗号化された認証情報を更新 (IDOR対策として所有権チェックを追加)
       for (const cred of data.credentials) {
-        await tx.accountCredential.update({
-          where: { id: cred.id },
+        await tx.accountCredential.updateMany({
+          where: {
+            id: cred.id,
+            record: {
+              userId: user.id, // 自分が所有するレコードの認証情報のみ更新可能
+            },
+          },
           data: {
             passwordHint: cred.passwordHint,
             passwordHintIv: cred.passwordHintIv,
           },
         });
       }
-
-      // Firebase Custom Claims に新しい family_id をセット
-      await adminAuth().setCustomUserClaims(user.id, {
-        family_id: targetFamilyId,
-      });
 
       return { success: true, familyId: targetFamilyId };
     });
@@ -179,16 +174,18 @@ export const changeFamilyFn = createServerFn({ method: "POST" })
 export const getFamilyInfoByInviteCodeFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator((data: { inviteCode: string }) => data)
-  .handler(async ({ data: { inviteCode } }) => {
-    const family = await db.family.findUnique({
-      where: { id: inviteCode },
-      select: {
-        id: true,
-        name: true,
-        masterKeyEncrypted: true,
-        masterKeyIv: true,
-        masterKeySalt: true,
-      },
+  .handler(async ({ data: { inviteCode }, context: { user } }) => {
+    const family = await withSession(user.id, user.familyId, async (tx) => {
+      return tx.family.findUnique({
+        where: { id: inviteCode },
+        select: {
+          id: true,
+          name: true,
+          masterKeyEncrypted: true,
+          masterKeyIv: true,
+          masterKeySalt: true,
+        },
+      });
     });
     if (!family) throw new Error("Invalid invite code");
     return family;

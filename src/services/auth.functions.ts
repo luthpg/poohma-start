@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie, setCookie } from "@tanstack/react-start/server";
 import { authMiddleware } from "@/services/auth.middleware";
-import { db } from "@/services/db.server";
+import { db, withSession } from "@/services/db.server";
 import {
   adminAuth,
   getSessionCookie,
@@ -123,14 +123,16 @@ export const updateProfileFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator((data: { displayName: string }) => data)
   .handler(async ({ data, context: { user } }) => {
-    const updatedUser = await db.user.update({
-      where: { id: user.id },
-      data: {
-        displayName: data.displayName,
-      },
-    });
+    return await withSession(user.id, user.familyId, async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          displayName: data.displayName,
+        },
+      });
 
-    return updatedUser;
+      return updatedUser;
+    });
   });
 
 /**
@@ -144,7 +146,7 @@ export const deleteAccountFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context: { user } }) => {
     // 1. DBトランザクションでデータ削除
-    await db.$transaction(async (tx) => {
+    await withSession(user.id, user.familyId, async (tx) => {
       const familyId = user.familyId;
 
       // 自身が作成したサービスレコードの削除

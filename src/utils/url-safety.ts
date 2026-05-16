@@ -38,6 +38,16 @@ export function isPrivateIp(ip: string): boolean {
     // :: (unspecified)
     if (normalized === "::") return true;
 
+    // ::ffff:0:0/96 (IPv4-mapped IPv6)
+    if (normalized.startsWith("::ffff:")) {
+      const ipv4Part = normalized.substring(7);
+      if (net.isIPv4(ipv4Part)) {
+        return isPrivateIp(ipv4Part);
+      }
+      // If it's another form of IPv4-mapped IPv6 (e.g. hex), block it for safety
+      return true;
+    }
+
     return false;
   }
 
