@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   deriveKeyFromPasscode,
   encrypt,
+  exportKeyToBase64,
   generateMasterKey,
   generateSalt,
   unwrapMasterKey,
@@ -109,8 +110,8 @@ function FamilyComponent() {
   ) => {
     e.preventDefault();
     if (action === "create") {
-      if (createPasscode.length < 4) {
-        toast.error("パスコードは4文字以上にしてください");
+      if (createPasscode.length < 8) {
+        toast.error("パスコードは8文字以上にしてください");
         return;
       }
       if (createPasscode !== createPasscodeConfirm) {
@@ -118,8 +119,8 @@ function FamilyComponent() {
         return;
       }
     } else {
-      if (!joinCode || joinPasscode.length < 4) {
-        toast.error("招待コードとパスコードを入力してください");
+      if (!joinCode || joinPasscode.length < 8) {
+        toast.error("招待コードとパスコードを入力してください（8文字以上）");
         return;
       }
     }
@@ -200,7 +201,7 @@ function FamilyComponent() {
       }
 
       // 4. サーバーへ送信
-      await changeFamilyFn({
+      const result = await changeFamilyFn({
         data: {
           action,
           name: action === "create" ? createName : undefined,
@@ -211,6 +212,20 @@ function FamilyComponent() {
           credentials: reEncryptedCredentials,
         },
       });
+
+      // 5. 新しいマスターキーを sessionStorage に保存
+      // router.invalidate() で familyId が変わる前に保存しておく
+      if (result.familyId) {
+        try {
+          const exported = await exportKeyToBase64(newMasterKey);
+          sessionStorage.setItem(
+            `poohma_master_key_${result.familyId}`,
+            exported,
+          );
+        } catch (e) {
+          console.error("Failed to save new master key to sessionStorage", e);
+        }
+      }
 
       toast.success("家族グループを変更し、データを移行しました");
       setIsChangingFamily(false);
@@ -227,8 +242,8 @@ function FamilyComponent() {
 
   const handleCreate = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    if (createPasscode.length < 4) {
-      toast.error("パスコードは4文字以上にしてください");
+    if (createPasscode.length < 8) {
+      toast.error("パスコードは8文字以上にしてください");
       return;
     }
     if (createPasscode !== createPasscodeConfirm) {
@@ -466,10 +481,10 @@ function FamilyComponent() {
                       type={showCreatePasscode ? "text" : "password"}
                       id="family-passcode-input"
                       required
-                      minLength={4}
+                      minLength={8}
                       value={createPasscode}
                       onChange={(e) => setCreatePasscode(e.target.value)}
-                      placeholder="4文字以上"
+                      placeholder="8文字以上"
                       className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                     />
                     <button
@@ -500,7 +515,7 @@ function FamilyComponent() {
                       type={showCreatePasscodeConfirm ? "text" : "password"}
                       id="family-passcode-confirm-input"
                       required
-                      minLength={4}
+                      minLength={8}
                       value={createPasscodeConfirm}
                       onChange={(e) => setCreatePasscodeConfirm(e.target.value)}
                       placeholder="もう一度入力"
@@ -582,10 +597,10 @@ function FamilyComponent() {
                         type={showJoinPasscode ? "text" : "password"}
                         id="family-join-passcode-input"
                         required
-                        minLength={4}
+                        minLength={8}
                         value={joinPasscode}
                         onChange={(e) => setJoinPasscode(e.target.value)}
-                        placeholder="4文字以上"
+                        placeholder="8文字以上"
                         className="w-full rounded-md bg-card p-2.5 text-base md:text-[14px] pr-10 shadow-border focus:outline-none focus:ring-2 focus:ring-orange-500/50"
                       />
                       <button

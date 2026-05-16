@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { z } from "zod";
+import { z } from "zod";
 import { type Prisma, Visibility } from "@/../generated/prisma/client"; // Prismaが生成したEnum
 import { authMiddleware } from "@/services/auth.middleware";
-import { db } from "@/services/db.server";
+import { withSession } from "@/services/db.server";
 import { RecordInputSchema } from "@/utils/schemas";
 import { validateUrlSafety } from "@/utils/url-safety";
 
@@ -12,14 +12,17 @@ import { validateUrlSafety } from "@/utils/url-safety";
  */
 export const getRecords = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .inputValidator(
-    (data?: {
-      tag?: string;
-      q?: string;
-      page?: number;
-      limit?: number;
-      sort?: string;
-    }) => data,
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        tag: z.string().optional(),
+        q: z.string().optional(),
+        page: z.number().min(1).optional(),
+        limit: z.number().min(1).max(100).optional(),
+        sort: z.string().optional(),
+      })
+      .optional()
+      .parse(data),
   )
   .handler(async ({ data, context: { user } }) => {
     const { tag, q, page = 1, limit = 20, sort = "name-asc" } = data || {};
@@ -76,19 +79,21 @@ export const getRecords = createServerFn({ method: "GET" })
 
     const skip = (page - 1) * limit;
 
-    const records = await db.serviceRecord.findMany({
-      where: whereCondition,
-      skip,
-      take: limit + 1, // 次のページがあるか確認するために1件多く取得
-      include: {
-        credentials: {
-          select: { loginId: true },
-          orderBy: { createdAt: "asc" },
+    const records = await withSession(user.id, user.familyId, async (tx) => {
+      return tx.serviceRecord.findMany({
+        where: whereCondition,
+        skip,
+        take: limit + 1, // 次のページがあるか確認するために1件多く取得
+        include: {
+          credentials: {
+            select: { loginId: true },
+            orderBy: { createdAt: "asc" },
+          },
+          tags: true,
+          user: { select: { displayName: true } },
         },
-        tags: true,
-        user: { select: { displayName: true } },
-      },
-      orderBy,
+        orderBy,
+      });
     });
 
     const hasNextPage = records.length > limit;
@@ -113,13 +118,15 @@ export const getRecordDetail = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data: { id }, context: { user } }) => {
-    const record = await db.serviceRecord.findUnique({
-      where: { id },
-      include: {
-        credentials: true,
-        tags: true,
-        user: { select: { displayName: true, email: true } },
-      },
+    const record = await withSession(user.id, user.familyId, async (tx) => {
+      return tx.serviceRecord.findUnique({
+        where: { id },
+        include: {
+          credentials: true,
+          tags: true,
+          user: { select: { displayName: true, email: true } },
+        },
+      });
     });
 
     if (!record) throw new Error("Record not found");
@@ -155,7 +162,7 @@ export const createRecord = createServerFn({ method: "POST" })
     const familyId = user.familyId;
 
     // トランザクション実行
-    return await db.$transaction(async (tx) => {
+    return await withSession(user.id, familyId, async (tx) => {
       return await tx.serviceRecord.create({
         data: {
           userId: user.id,
@@ -193,25 +200,27 @@ export const deleteRecord = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data: { id }, context: { user } }) => {
-    // 削除前の権限確認
-    const record = await db.serviceRecord.findUnique({
-      where: { id },
-    });
+    return await withSession(user.id, user.familyId, async (tx) => {
+      // 削除前の権限確認
+      const record = await tx.serviceRecord.findUnique({
+        where: { id },
+      });
 
-    if (!record) throw new Error("Not found");
+      if (!record) throw new Error("Not found");
 
-    const isOwner = record.userId === user.id;
-    const isFamilyShared =
-      record.visibility === Visibility.SHARED &&
-      record.familyId === user.familyId;
+      const isOwner = record.userId === user.id;
+      const isFamilyShared =
+        record.visibility === Visibility.SHARED &&
+        record.familyId === user.familyId;
 
-    if (!isOwner && !isFamilyShared) {
-      throw new Error("Forbidden: Cannot delete this record");
-    }
+      if (!isOwner && !isFamilyShared) {
+        throw new Error("Forbidden: Cannot delete this record");
+      }
 
-    // 削除実行 (Cascade設定により、credentialsやtagsも自動で消える)
-    return await db.serviceRecord.delete({
-      where: { id },
+      // 削除実行 (Cascade設定により、credentialsやtagsも自動で消える)
+      return await tx.serviceRecord.delete({
+        where: { id },
+      });
     });
   });
 
@@ -224,18 +233,18 @@ export const updateRecord = createServerFn({ method: "POST" })
     (data: { id: string; data: z.infer<typeof RecordInputSchema> }) => data,
   )
   .handler(async ({ data: { id, data: inputData }, context: { user } }) => {
-    const record = await db.serviceRecord.findUnique({ where: { id } });
-    if (!record) throw new Error("Not found");
+    return await withSession(user.id, user.familyId, async (tx) => {
+      const record = await tx.serviceRecord.findUnique({ where: { id } });
+      if (!record) throw new Error("Not found");
 
-    const isOwner = record.userId === user.id;
-    const isFamilyShared =
-      record.visibility === Visibility.SHARED &&
-      record.familyId === user.familyId;
-    if (!isOwner && !isFamilyShared) {
-      throw new Error("Forbidden: Cannot update this record");
-    }
+      const isOwner = record.userId === user.id;
+      const isFamilyShared =
+        record.visibility === Visibility.SHARED &&
+        record.familyId === user.familyId;
+      if (!isOwner && !isFamilyShared) {
+        throw new Error("Forbidden: Cannot update this record");
+      }
 
-    return await db.$transaction(async (tx) => {
       // 既存の関連データを削除
       await tx.accountCredential.deleteMany({ where: { recordId: id } });
       await tx.recordTag.deleteMany({ where: { recordId: id } });
@@ -287,6 +296,7 @@ export const getOgpInfoFn = createServerFn({ method: "GET" })
       const response = await fetch(url, {
         headers: { "User-Agent": "PoohMa-Bot/1.0" },
         signal: controller.signal,
+        redirect: "error", // リダイレクトをエラーとして扱い、内部IPへのSSRFを防止
       });
       clearTimeout(timeoutId);
 
@@ -324,21 +334,22 @@ export const getOgpInfoFn = createServerFn({ method: "GET" })
 export const getAvailableTagsFn = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context: { user } }) => {
-    const tags = await db.recordTag.findMany({
-      where: {
-        record: {
-          OR: [
-            { userId: user.id },
-            {
-              visibility: Visibility.SHARED,
-              familyId: user.familyId || "no-family",
-            },
-          ],
+    const tags = await withSession(user.id, user.familyId, async (tx) => {
+      return tx.recordTag.findMany({
+        where: {
+          record: {
+            OR: user.familyId
+              ? [
+                  { userId: user.id },
+                  { visibility: Visibility.SHARED, familyId: user.familyId },
+                ]
+              : [{ userId: user.id }],
+          },
         },
-      },
-      select: { tagName: true },
-      distinct: ["tagName"],
-      orderBy: { tagName: "asc" },
+        select: { tagName: true },
+        distinct: ["tagName"],
+        orderBy: { tagName: "asc" },
+      });
     });
 
     return tags.map((t) => t.tagName);
@@ -381,25 +392,26 @@ const mapRecordsToCsvRows = (
 export const exportRecordsCsv = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context: { user } }) => {
-    const records = await db.serviceRecord.findMany({
-      where: {
-        OR: [
-          { userId: user.id },
-          {
-            visibility: Visibility.SHARED,
-            familyId: user.familyId || "no-family",
+    const records = await withSession(user.id, user.familyId, async (tx) => {
+      return tx.serviceRecord.findMany({
+        where: {
+          OR: user.familyId
+            ? [
+                { userId: user.id },
+                { visibility: Visibility.SHARED, familyId: user.familyId },
+              ]
+            : [{ userId: user.id }],
+        },
+        include: {
+          credentials: {
+            orderBy: { createdAt: "asc" },
           },
-        ],
-      },
-      include: {
-        credentials: {
-          orderBy: { createdAt: "asc" },
+          tags: {
+            orderBy: { tagName: "asc" },
+          },
         },
-        tags: {
-          orderBy: { tagName: "asc" },
-        },
-      },
-      orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "desc" },
+      });
     });
 
     return mapRecordsToCsvRows(records);
@@ -411,17 +423,19 @@ export const exportRecordsCsv = createServerFn({ method: "GET" })
 export const exportOwnedRecordsCsv = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context: { user } }) => {
-    const records = await db.serviceRecord.findMany({
-      where: { userId: user.id },
-      include: {
-        credentials: {
-          orderBy: { createdAt: "asc" },
+    const records = await withSession(user.id, user.familyId, async (tx) => {
+      return tx.serviceRecord.findMany({
+        where: { userId: user.id },
+        include: {
+          credentials: {
+            orderBy: { createdAt: "asc" },
+          },
+          tags: {
+            orderBy: { tagName: "asc" },
+          },
         },
-        tags: {
-          orderBy: { tagName: "asc" },
-        },
-      },
-      orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "desc" },
+      });
     });
 
     return mapRecordsToCsvRows(records);
@@ -438,6 +452,13 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
       throw new Error("家族グループに所属していません。");
     }
     const familyId = user.familyId;
+
+    // DoS対策: インポート行数の上限設定
+    if (rows.length > 500) {
+      throw new Error(
+        "一度にインポートできるデータは最大500行までです。ファイルを分割して再度お試しください。",
+      );
+    }
 
     const failures: { row: number; reason: string }[] = [];
     const validRecords: (z.infer<typeof RecordInputSchema> & {
@@ -518,28 +539,30 @@ export const importRecordsCsv = createServerFn({ method: "POST" })
     if (validRecords.length > 0) {
       for (const record of validRecords) {
         try {
-          await db.serviceRecord.create({
-            data: {
-              userId: user.id,
-              familyId,
-              title: record.title,
-              url: record.url || null,
-              memo: record.memo || null,
-              visibility: record.visibility,
-              credentials: {
-                create: record.credentials.map((cred) => ({
-                  label: cred.label,
-                  loginId: cred.loginId,
-                  passwordHint: cred.passwordHint,
-                  passwordHintIv: cred.passwordHintIv,
-                })),
+          await withSession(user.id, familyId, async (tx) => {
+            await tx.serviceRecord.create({
+              data: {
+                userId: user.id,
+                familyId,
+                title: record.title,
+                url: record.url || null,
+                memo: record.memo || null,
+                visibility: record.visibility,
+                credentials: {
+                  create: record.credentials.map((cred) => ({
+                    label: cred.label,
+                    loginId: cred.loginId,
+                    passwordHint: cred.passwordHint,
+                    passwordHintIv: cred.passwordHintIv,
+                  })),
+                },
+                tags: {
+                  create: record.tags.map((tagName: string) => ({
+                    tagName,
+                  })),
+                },
               },
-              tags: {
-                create: record.tags.map((tagName: string) => ({
-                  tagName,
-                })),
-              },
-            },
+            });
           });
           successes++;
         } catch (err) {

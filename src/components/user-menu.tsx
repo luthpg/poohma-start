@@ -90,6 +90,16 @@ export function UserMenu({
           toast.loading("データを処理中...", { id: toastId });
           const data = results.data as Record<string, string>[];
 
+          if (data.length > 500) {
+            toast.error(
+              "一度にインポートできるデータは最大500行までです。ファイルを分割して再度お試しください。",
+              { id: toastId, duration: 8000 },
+            );
+            setIsImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+          }
+
           let hasHintsToEncrypt = false;
           for (const row of data) {
             for (let i = 1; i <= 10; i++) {

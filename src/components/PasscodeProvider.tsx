@@ -164,12 +164,12 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isPromptOpen]);
 
-  // 起動時・リロード時に sessionStorage から鍵を復元する
+  // 起動時・リロード時・家族変更時に sessionStorage から鍵を復元する
   useEffect(() => {
     const restoreKey = async () => {
       if (storageKey) {
         const storedKey = sessionStorage.getItem(storageKey);
-        if (storedKey && !masterKeyRef.current) {
+        if (storedKey) {
           try {
             const key = await importKeyFromBase64(storedKey);
             masterKeyRef.current = key;
@@ -180,7 +180,13 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
               e,
             );
             sessionStorage.removeItem(storageKey);
+            masterKeyRef.current = null;
+            setMasterKey(null);
           }
+        } else {
+          // storageKey が変わったが新しいキーがない場合は旧キーをクリア
+          masterKeyRef.current = null;
+          setMasterKey(null);
         }
       }
     };
