@@ -45,7 +45,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useExportCsv } from "@/hooks/use-export-csv";
 import { logout } from "@/services/auth.functions";
-import { importRecordsCsv } from "@/services/records.functions";
+import { getOgpInfoFn, importRecordsCsv } from "@/services/records.functions";
 import { auth } from "@/utils/firebase";
 
 export function UserMenu({
@@ -123,6 +123,19 @@ export function UserMenu({
           const encryptedData = await Promise.all(
             data.map(async (row) => {
               const newRow = { ...row };
+
+              // OGP情報を取得（既に画像や説明がある場合はスキップ）
+              if (newRow.URL && !newRow.ogpImage && !newRow.ogpDescription) {
+                try {
+                  const ogp = await getOgpInfoFn({ data: { url: newRow.URL } });
+                  if (ogp.image) newRow.ogpImage = ogp.image;
+                  if (ogp.description) newRow.ogpDescription = ogp.description;
+                  if (ogp.title && !newRow.Title) newRow.Title = ogp.title;
+                } catch (e) {
+                  console.error(`Failed to fetch OGP for ${newRow.URL}`, e);
+                }
+              }
+
               for (let i = 1; i <= 10; i++) {
                 const hint = newRow[`PasswordHint${i}`];
                 if (hint) {

@@ -301,7 +301,7 @@ function RouteComponent() {
           </form>
           {/* タグクラウド (フィルター) */}
           {availableTags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex overflow-x-auto py-1.5 gap-2.5 no-scrollbar scroll-smooth items-center">
               {availableTags.map((t: string) => {
                 const isActive = searchParams.tag === t;
                 return (
@@ -309,10 +309,10 @@ function RouteComponent() {
                     key={t}
                     type="button"
                     onClick={() => handleTagClick(t)}
-                    className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                    className={`shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all duration-200 ${
                       isActive
-                        ? "bg-orange-500 text-white shadow-border"
-                        : "bg-card text-muted-foreground shadow-border hover:bg-accent"
+                        ? "bg-orange-500 text-white shadow-md scale-105"
+                        : "bg-card text-muted-foreground border border-border/40 shadow-sm hover:border-orange-500/50 hover:text-orange-500 hover:bg-orange-500/5"
                     }`}
                   >
                     #{t}
