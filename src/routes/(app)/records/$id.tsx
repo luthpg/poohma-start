@@ -590,14 +590,60 @@ function RecordDetailComponent() {
           )}
           {/* URLリンクがあればオーバーレイ */}
           {record.url && (
-            <a
-              href={record.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-4 right-4 rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm hover:bg-black/80"
-            >
-              サイトを開く ↗
-            </a>
+            <div className="absolute bottom-4 right-4 flex gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!record.url) return;
+                  setIsLoading(true);
+                  try {
+                    const ogp = await getOgpInfoFn({
+                      data: { url: record.url },
+                    });
+                    await updateRecord({
+                      data: {
+                        id: record.id,
+                        data: {
+                          title: record.title,
+                          url: record.url,
+                          ogpImage: ogp.image || undefined,
+                          ogpDescription: ogp.description || undefined,
+                          memo: record.memo || undefined,
+                          visibility: record.visibility,
+                          credentials: record.credentials.map((c) => ({
+                            label: c.label || "",
+                            loginId: c.loginId || "",
+                            passwordHint: c.passwordHint || "",
+                            passwordHintIv: c.passwordHintIv || undefined,
+                          })),
+                          tags: record.tags.map((t) => t.tagName),
+                        },
+                      },
+                    });
+                    toast.success("OGP情報を更新しました");
+                    await router.invalidate();
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("OGP情報の更新に失敗しました");
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                disabled={isLoading}
+                className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm hover:bg-black/80 transition flex items-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? <Spinner className="h-4 w-4" /> : "↻"}
+                OGP更新
+              </button>
+              <a
+                href={record.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm hover:bg-black/80 transition"
+              >
+                サイトを開く ↗
+              </a>
+            </div>
           )}
         </div>
 
