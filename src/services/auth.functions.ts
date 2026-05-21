@@ -22,43 +22,50 @@ const SESSION_EXPIRES_IN_MS = SESSION_EXPIRES_IN_SECONDS * 1000;
 export const syncUser = createServerFn({ method: "POST" })
   .inputValidator((data: { idToken: string }) => data)
   .handler(async ({ data: { idToken } }) => {
-    const decodedToken = await adminAuth().verifyIdToken(idToken);
-    const { uid, email, name, picture } = decodedToken;
+    try {
+      const decodedToken = await adminAuth().verifyIdToken(idToken);
+      const { uid, email, name, picture } = decodedToken;
 
-    if (!email) throw new Error("Email is required");
+      if (!email) throw new Error("Email is required");
 
-    // ユーザー検索・作成
-    const user = await db.user.upsert({
-      where: { id: uid },
-      update: {
-        email,
-        displayName: name,
-        photoURL: picture,
-      },
-      create: {
-        id: uid,
-        email,
-        displayName: name,
-        photoURL: picture,
-      },
-    });
+      // ユーザー検索・作成
+      const user = await db.user.upsert({
+        where: { id: uid },
+        update: {
+          email,
+          displayName: name,
+          photoURL: picture,
+        },
+        create: {
+          id: uid,
+          email,
+          displayName: name,
+          photoURL: picture,
+        },
+      });
 
-    // セッションクッキーの作成 (expiresIn はミリ秒)
-    const sessionCookie = await getSessionCookie(
-      idToken,
-      SESSION_EXPIRES_IN_MS,
-    );
+      // セッションクッキーの作成 (expiresIn はミリ秒)
+      const sessionCookie = await getSessionCookie(
+        idToken,
+        SESSION_EXPIRES_IN_MS,
+      );
 
-    // クッキーの設定 (maxAge は秒)
-    setCookie("session", sessionCookie, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_EXPIRES_IN_SECONDS,
-    });
+      // クッキーの設定 (maxAge は秒)
+      const isProduction = process.env.NODE_ENV === "production";
 
-    return user.id;
+      setCookie("session", sessionCookie, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        path: "/",
+        maxAge: SESSION_EXPIRES_IN_SECONDS,
+      });
+
+      return user.id;
+    } catch (error) {
+      console.error("syncUser failed:", error);
+      throw error;
+    }
   });
 
 /**
@@ -67,7 +74,7 @@ export const syncUser = createServerFn({ method: "POST" })
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   setCookie("session", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: 0, // 即時無効化
@@ -110,7 +117,7 @@ export const getAuthUser = createServerFn({ method: "GET" }).handler(
 
       return user;
     } catch (error) {
-      console.error("Auth verification failed:", error);
+      console.error("getAuthUser: Auth verification failed:", error);
       return null;
     }
   },
