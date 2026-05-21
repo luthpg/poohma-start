@@ -40,7 +40,23 @@ function LoginPage() {
       return;
     }
 
-    // リダイレクト結果のエラー確認
+    let isComponentMounted = true;
+    let authFired = false;
+    let redirectChecked = false;
+
+    // 最終的な状態を判定してローディングを解除する関数
+    const finalizeAuth = (user: unknown) => {
+      if (!isComponentMounted) return;
+
+      // リダイレクト確認と認証監視の両方が一度は完了している必要がある
+      if (redirectChecked && authFired) {
+        if (!user) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // リダイレクト結果の確認
     const checkRedirect = async () => {
       try {
         // biome-ignore lint/style/noNonNullAssertion: authはuseEffectの時点でnullでないことが保証されている
@@ -48,7 +64,12 @@ function LoginPage() {
       } catch (err) {
         console.error("Redirect login error:", err);
         setError("ログインに失敗しました。もう一度お試しください。");
-        setIsLoading(false);
+      } finally {
+        redirectChecked = true;
+        // Firebaseの状態によっては、ここで既にauthFiredがtrueになっている場合がある
+        if (auth?.currentUser === null) {
+          finalizeAuth(null);
+        }
       }
     };
 
@@ -56,15 +77,21 @@ function LoginPage() {
 
     // 認証状態の監視
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      authFired = true;
+
       if (user) {
         try {
+          setIsLoading(true);
           const idToken = await user.getIdToken();
           await syncUser({ data: { idToken } });
+
+          if (!isComponentMounted) return;
           await router.invalidate();
 
           const target =
             localStorage.getItem("postLoginRedirect") || "/dashboard";
           localStorage.removeItem("postLoginRedirect");
+
           try {
             const url = new URL(target, window.location.origin);
             await router.navigate({
@@ -75,17 +102,21 @@ function LoginPage() {
             await router.navigate({ to: "/dashboard" });
           }
         } catch (err) {
-          console.error("User sync error:", err);
-          setError("ユーザー情報の同期に失敗しました。");
-          setIsLoading(false);
+          console.error("Authentication flow error:", err);
+          if (isComponentMounted) {
+            setError("認証プロセスでエラーが発生しました。");
+            setIsLoading(false);
+          }
         }
       } else {
-        // 未ログイン状態が確定したらローディングを解除
-        setIsLoading(false);
+        finalizeAuth(null);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isComponentMounted = false;
+      unsubscribe();
+    };
   }, [router]);
 
   const handleGoogleLogin = async () => {
