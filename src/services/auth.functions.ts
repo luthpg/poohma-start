@@ -29,20 +29,73 @@ export const syncUser = createServerFn({ method: "POST" })
       if (!email) throw new Error("Email is required");
 
       // ユーザー検索・作成
-      const user = await db.user.upsert({
+      // まずFirebase UIDで検索
+      const existingById = await db.user.findUnique({
         where: { id: uid },
-        update: {
-          email,
-          displayName: name,
-          photoURL: picture,
-        },
-        create: {
-          id: uid,
-          email,
-          displayName: name,
-          photoURL: picture,
-        },
       });
+
+      let user: Awaited<ReturnType<typeof db.user.findUnique>> | null = null;
+
+      if (existingById) {
+        // UIDが一致するレコードがある → プロフィール情報を更新
+        user = await db.user.update({
+          where: { id: uid },
+          data: {
+            email,
+            displayName: name,
+            photoURL: picture,
+          },
+        });
+      } else {
+        // UIDが一致しない → 同じemailの古いレコードがないか確認
+        const existingByEmail = await db.user.findUnique({
+          where: { email },
+        });
+
+        if (existingByEmail) {
+          // 同じemailで別UIDのレコードが存在 → UIDを新しいものに差し替え
+          // （Firebase Auth側でアカウント再作成されたケース）
+          // 旧ユーザーにServiceRecordが紐づいている可能性があるため
+          // トランザクションで安全にデータを移行する
+          user = await db.$transaction(async (tx) => {
+            // 1. 新UIDでユーザーを仮作成（email重複を避けるため一時値を使用）
+            await tx.user.create({
+              data: {
+                id: uid,
+                email: `${uid}@pending.example.com`,
+                displayName: name,
+                photoURL: picture,
+                familyId: existingByEmail.familyId,
+              },
+            });
+
+            // 2. 旧ユーザーのサービスレコードを新ユーザーに移行
+            await tx.serviceRecord.updateMany({
+              where: { userId: existingByEmail.id },
+              data: { userId: uid },
+            });
+
+            // 3. 旧ユーザーを削除（FK参照は解消済み）
+            await tx.user.delete({ where: { id: existingByEmail.id } });
+
+            // 4. 新ユーザーのemailを正しい値に更新
+            return await tx.user.update({
+              where: { id: uid },
+              data: { email },
+            });
+          });
+        } else {
+          // 完全に新規のユーザー
+          user = await db.user.create({
+            data: {
+              id: uid,
+              email,
+              displayName: name,
+              photoURL: picture,
+            },
+          });
+        }
+      }
 
       // セッションクッキーの作成 (expiresIn はミリ秒)
       const sessionCookie = await getSessionCookie(
