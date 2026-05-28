@@ -20,10 +20,7 @@ vi.mock("@tanstack/react-start", () => {
 });
 
 // モック定義の後に、純粋なロジック関数をインポートする
-import {
-  changeFamilyLogic,
-  createFamilyLogic,
-} from "@/services/family.functions";
+import { changeFamilyLogic, createFamilyLogic } from "@/services/family.server";
 
 const B64_VALID = "SGVsbG9Xb3JsZA==";
 
