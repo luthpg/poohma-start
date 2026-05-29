@@ -113,7 +113,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
   beforeLoad: async ({ context }) => {
     const user =
-      await context.queryClient.ensureQueryData(authUserQueryOptions);
+      await context.queryClient.fetchQuery(authUserQueryOptions);
     return { user };
   },
 

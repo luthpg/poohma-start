@@ -47,6 +47,11 @@ function SettingsComponent() {
   }, []);
 
   const [displayName, setDisplayName] = useState(user.displayName || "");
+
+  // ローダーデータの user.displayName が変わった場合にフォームの値を同期
+  useEffect(() => {
+    setDisplayName(user.displayName || "");
+  }, [user.displayName]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
