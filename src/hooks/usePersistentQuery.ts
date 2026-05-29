@@ -15,7 +15,16 @@ export function usePersistentQuery<T>(
 ): T | undefined {
   const result = useQuery(query, args);
   // Create a unique key based on the query function and its arguments
-  const cacheKey = JSON.stringify({ query: query.toString(), args });
+  let queryKey = "";
+  if (query && typeof query === "object") {
+    queryKey =
+      "_path" in query
+        ? String((query as Record<string, unknown>)._path)
+        : JSON.stringify(query);
+  } else {
+    queryKey = String(query);
+  }
+  const cacheKey = JSON.stringify({ query: queryKey, args });
 
   useEffect(() => {
     if (result !== undefined) {
