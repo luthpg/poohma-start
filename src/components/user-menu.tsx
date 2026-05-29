@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useConvex, useMutation } from "convex/react";
 import { signOut } from "firebase/auth";
@@ -58,6 +59,7 @@ export function UserMenu({
   };
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const convex = useConvex();
   const importRecordsMut = useMutation(api.records.importRecords);
   const { theme, setTheme } = useTheme();
@@ -70,6 +72,8 @@ export function UserMenu({
     try {
       if (auth) await signOut(auth);
       await logout();
+      await queryClient.invalidateQueries({ queryKey: ["authUser"] });
+      queryClient.setQueryData(["authUser"], null);
       await router.invalidate();
       await router.navigate({ to: "/" });
     } catch (_error) {
