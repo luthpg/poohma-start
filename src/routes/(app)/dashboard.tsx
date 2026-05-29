@@ -5,7 +5,6 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import { LayoutGrid, List } from "lucide-react";
 import { type SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -13,6 +12,7 @@ import { api } from "@/../convex/_generated/api";
 import type { Doc } from "@/../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserMenu } from "@/components/user-menu";
+import { usePersistentQuery } from "@/hooks/usePersistentQuery";
 import {
   getDashboardPrefsFn,
   setDashboardPrefsFn,
@@ -68,7 +68,9 @@ function TagCloud({
   activeTag: string | undefined;
   onTagClick: (tag: string) => void;
 }) {
-  const availableTags = useQuery(api.records.getAvailableTags);
+  const availableTags = usePersistentQuery<string[]>(
+    api.records.getAvailableTags,
+  );
 
   if (availableTags === undefined) return <TagCloudSkeleton />;
   if (availableTags.length === 0) return null;
@@ -286,11 +288,14 @@ function RecordListSection({
   handleViewModeChange: (newMode: "card" | "list") => void;
 }) {
   const { user } = routeApi.useLoaderData();
-  const records = useQuery(api.records.getRecords, {
-    q: searchParams.q,
-    tag: searchParams.tag,
-    sort: sortParam,
-  });
+  const records = usePersistentQuery<Doc<"serviceRecords">[]>(
+    api.records.getRecords,
+    {
+      q: searchParams.q,
+      tag: searchParams.tag,
+      sort: sortParam,
+    },
+  );
 
   if (records === undefined) {
     return <RecordListSkeleton />;

@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { useExportCsv } from "@/hooks/use-export-csv";
+import { clearQueryCache } from "@/hooks/usePersistentQuery";
 import { logout } from "@/services/auth.functions";
 import { auth } from "@/utils/firebase";
 
@@ -72,6 +73,7 @@ export function UserMenu({
     try {
       if (auth) await signOut(auth);
       await logout();
+      clearQueryCache();
       await queryClient.invalidateQueries({ queryKey: ["authUser"] });
       queryClient.setQueryData(["authUser"], null);
       await router.invalidate();
