@@ -40,6 +40,7 @@ const routeApi = getRouteApi("/(app)/settings");
 function SettingsComponent() {
   const { user } = routeApi.useLoaderData();
   const router = useRouter();
+  const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -64,6 +65,7 @@ function SettingsComponent() {
     setIsSaving(true);
     try {
       await updateProfile({ displayName: displayName.trim() });
+      await queryClient.invalidateQueries({ queryKey: ["authUser"] });
       toast.success("プロフィールを更新しました");
       await router.invalidate();
     } catch (error) {

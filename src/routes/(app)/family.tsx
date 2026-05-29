@@ -77,6 +77,7 @@ function FamilyComponent() {
   const family = useQuery(api.families.getFamilyMembers);
   const search = Route.useSearch();
   const router = useRouter();
+  const { queryClient } = Route.useRouteContext();
   const convex = useConvex();
 
   const createFamilyMut = useMutation(api.families.createFamily);
@@ -105,6 +106,7 @@ function FamilyComponent() {
       setIsLoading(true);
       try {
         await joinFamilyMut({ inviteCode: code as Id<"families"> });
+        await queryClient.invalidateQueries({ queryKey: ["authUser"] });
         toast.success("家族グループに参加しました");
         await router.invalidate();
       } catch {
@@ -113,7 +115,7 @@ function FamilyComponent() {
         setIsLoading(false);
       }
     },
-    [router, joinFamilyMut],
+    [router, joinFamilyMut, queryClient],
   );
 
   // 招待コードがURLにあり、家族未所属の場合は自動で参加を発火
@@ -254,6 +256,7 @@ function FamilyComponent() {
         }
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["authUser"] });
       toast.success("家族グループを変更し、データを移行しました");
       setIsChangingFamily(false);
       await router.invalidate();
@@ -291,6 +294,7 @@ function FamilyComponent() {
         masterKeyIv: wrapped.iv,
         masterKeySalt: salt,
       });
+      await queryClient.invalidateQueries({ queryKey: ["authUser"] });
       toast.success("家族グループを作成しました。");
       await router.invalidate();
     } catch {
