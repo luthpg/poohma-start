@@ -1,5 +1,15 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { z } from "zod";
+import { RecordInputSchema, CredentialInputSchema } from "../src/utils/schemas";
+
+const ConvexCredentialInputSchema = CredentialInputSchema.extend({
+  id: z.string(),
+});
+
+const ConvexRecordInputSchema = RecordInputSchema.extend({
+  credentials: z.array(ConvexCredentialInputSchema),
+});
 
 // === Queries ===
 
@@ -26,17 +36,26 @@ export const getRecords = query({
       throw new Error("User not found");
     }
 
-    // 基本クエリ: 自身のレコード、または同じ家族で共有設定のもの
-    let recordsQuery = ctx.db.query("serviceRecords");
+    // 自身のレコードと家族で共有設定のレコードをインデックスを活用して個別に取得
+    const ownRecords = await ctx.db
+      .query("serviceRecords")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
 
-    // 全件取得してからフィルタ (検索条件が複雑なため)
-    let records = await recordsQuery.collect();
+    const sharedRecords = user.familyId
+      ? await ctx.db
+          .query("serviceRecords")
+          .withIndex("by_familyId_visibility", (q) =>
+            q.eq("familyId", user.familyId).eq("visibility", "SHARED")
+          )
+          .collect()
+      : [];
 
-    records = records.filter(
-      (record) =>
-        record.userId === userId ||
-        (record.familyId === user.familyId && record.visibility === "SHARED")
-    );
+    const ownIds = new Set(ownRecords.map((r) => r._id));
+    let records = [
+      ...ownRecords,
+      ...sharedRecords.filter((r) => !ownIds.has(r._id)),
+    ];
 
     if (args.tag) {
       records = records.filter((r) => r.tags.includes(args.tag!));
@@ -128,13 +147,25 @@ export const getAvailableTags = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
 
-    const records = await ctx.db.query("serviceRecords").collect();
-    
-    const visibleRecords = records.filter(
-      (r) =>
-        r.userId === userId ||
-        (user && r.familyId === user.familyId && r.visibility === "SHARED")
-    );
+    const ownRecords = await ctx.db
+      .query("serviceRecords")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+
+    const sharedRecords = user?.familyId
+      ? await ctx.db
+          .query("serviceRecords")
+          .withIndex("by_familyId_visibility", (q) =>
+            q.eq("familyId", user.familyId).eq("visibility", "SHARED")
+          )
+          .collect()
+      : [];
+
+    const ownIds = new Set(ownRecords.map((r) => r._id));
+    const visibleRecords = [
+      ...ownRecords,
+      ...sharedRecords.filter((r) => !ownIds.has(r._id)),
+    ];
 
     const tagsSet = new Set<string>();
     for (const r of visibleRecords) {
@@ -169,6 +200,13 @@ export const createRecord = mutation({
     tags: v.array(v.string()),
   },
   handler: async (ctx, args) => {
+    const parsed = ConvexRecordInputSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new Error(
+        `Validation failed: ${parsed.error.issues.map((i) => i.message).join(", ")}`
+      );
+    }
+
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
     const userId = identity.subject;
@@ -222,14 +260,33 @@ export const updateRecord = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    const parsed = ConvexRecordInputSchema.safeParse(args.data);
+    if (!parsed.success) {
+      throw new Error(
+        `Validation failed: ${parsed.error.issues.map((i) => i.message).join(", ")}`
+      );
+    }
+
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
     const userId = identity.subject;
 
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!user) throw new Error("User not found");
+
     const record = await ctx.db.get(args.id);
     if (!record) throw new Error("Record not found");
 
-    if (record.userId !== userId) {
+    const isOwner = record.userId === userId;
+    const isFamilyShared =
+      record.visibility === "SHARED" &&
+      record.familyId != null &&
+      record.familyId === user.familyId;
+
+    if (!isOwner && !isFamilyShared) {
       throw new Error("Only the owner can update this record");
     }
 
@@ -247,10 +304,22 @@ export const deleteRecord = mutation({
     if (!identity) throw new Error("Unauthenticated");
     const userId = identity.subject;
 
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!user) throw new Error("User not found");
+
     const record = await ctx.db.get(args.id);
     if (!record) throw new Error("Record not found");
 
-    if (record.userId !== userId) {
+    const isOwner = record.userId === userId;
+    const isFamilyShared =
+      record.visibility === "SHARED" &&
+      record.familyId != null &&
+      record.familyId === user.familyId;
+
+    if (!isOwner && !isFamilyShared) {
       throw new Error("Only the owner can delete this record");
     }
 
@@ -306,8 +375,12 @@ export const importRecords = mutation({
     for (let i = 0; i < args.records.length; i++) {
       const record = args.records[i];
       try {
-        if (!record.title) {
-          failures.push({ row: i + 1, reason: "タイトルが空です" });
+        const parsed = ConvexRecordInputSchema.safeParse(record);
+        if (!parsed.success) {
+          failures.push({
+            row: i + 1,
+            reason: parsed.error.issues.map((issue) => issue.message).join(", "),
+          });
           continue;
         }
         await ctx.db.insert("serviceRecords", {
@@ -336,3 +409,16 @@ export const importRecords = mutation({
   },
 });
 
+export const getOwnedRecords = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
+    return await ctx.db
+      .query("serviceRecords")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+  },
+});

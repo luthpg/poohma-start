@@ -1,5 +1,8 @@
+"use node";
+
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { validateUrlSafety } from "../src/utils/url-safety";
 
 function decodeHtmlEntities(str: string): string {
   if (!str) return "";
@@ -24,28 +27,24 @@ export const getOgpInfo = action({
     }
 
     try {
-      // Basic URL validation
-      const parsedUrl = new URL(args.url);
-      if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-        throw new Error("Invalid URL protocol");
-      }
-      if (
-        parsedUrl.hostname === "localhost" ||
-        parsedUrl.hostname === "127.0.0.1" ||
-        parsedUrl.hostname === "::1" ||
-        parsedUrl.hostname.startsWith("10.") ||
-        parsedUrl.hostname.startsWith("192.168.") ||
-        parsedUrl.hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)
-      ) {
-        throw new Error("Access to local network is forbidden");
-      }
+      // SSRF validation including DNS resolution
+      await validateUrlSafety(args.url);
 
-      const response = await fetch(args.url, {
-        headers: {
-          "User-Agent": "PoohMa-OGP-Bot/1.0",
-          Accept: "text/html,application/xhtml+xml",
-        },
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      let response: Response;
+      try {
+        response = await fetch(args.url, {
+          headers: {
+            "User-Agent": "PoohMa-OGP-Bot/1.0",
+            Accept: "text/html,application/xhtml+xml",
+          },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         return { title: "", image: "", description: "" };

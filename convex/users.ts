@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /**
  * ユーザー同期（ログイン時に呼ばれる）
@@ -107,55 +108,64 @@ export const updateProfile = mutation({
   },
 });
 
-export const deleteAccount = mutation({
+export const deleteRecordsChunk = internalMutation({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const records = await ctx.db
+      .query("serviceRecords")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .take(50); // limit to avoid transaction size limits
+
+    for (const record of records) {
+      await ctx.db.delete(record._id);
+    }
+    return records.length === 50;
+  },
+});
+
+export const finalizeAccountDeletion = internalMutation({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+
+    if (!user) return;
+
+    if (user.familyId) {
+      const familyId = user.familyId;
+      const familyMembers = await ctx.db
+        .query("users")
+        .filter((q) => q.eq(q.field("familyId"), familyId))
+        .collect();
+      
+      const otherMembers = familyMembers.filter((u) => u.userId !== args.userId);
+
+      if (otherMembers.length === 0) {
+        await ctx.db.delete(familyId);
+      }
+    }
+
+    await ctx.db.delete(user._id);
+  },
+});
+
+export const deleteAccount = action({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ success: boolean }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
     }
     const userId = identity.subject;
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
+    let hasMoreRecords = true;
+    while (hasMoreRecords) {
+      hasMoreRecords = (await ctx.runMutation(internal.users.deleteRecordsChunk, { userId })) as boolean;
     }
 
-    // 1. ユーザーが作成した serviceRecords の削除
-    const records = await ctx.db
-      .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-
-    for (const record of records) {
-      await ctx.db.delete(record._id);
-    }
-
-    // 2. 家族に関する処理
-    if (user.familyId) {
-      const familyId = user.familyId;
-      // 同じ家族のメンバーをカウント
-      const familyMembers = await ctx.db
-        .query("users")
-        .collect();
-      
-      const otherMembers = familyMembers.filter(
-        (u) => u.familyId === familyId && u.userId !== userId
-      );
-
-      // 他のメンバーがいない場合は家族も削除
-      if (otherMembers.length === 0) {
-        await ctx.db.delete(familyId);
-      }
-    }
-
-    // 3. ユーザー自身の削除
-    await ctx.db.delete(user._id);
-
+    await ctx.runMutation(internal.users.finalizeAccountDeletion, { userId });
     return { success: true };
   },
 });

@@ -4,8 +4,7 @@ import {
   redirect,
   useRouter,
 } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
-import { signOut } from "firebase/auth";
+import { useAction, useMutation } from "convex/react";
 import { AlertTriangle, Download } from "lucide-react";
 import { type SubmitEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useExportCsv } from "@/hooks/use-export-csv";
+import { clearQueryCache } from "@/hooks/usePersistentQuery";
 import { auth } from "@/utils/firebase";
 
 export const Route = createFileRoute("/(app)/settings")({
@@ -58,7 +58,7 @@ function SettingsComponent() {
   const { handleExport, isExporting } = useExportCsv();
 
   const updateProfile = useMutation(api.users.updateProfile);
-  const deleteAccount = useMutation(api.users.deleteAccount);
+  const deleteAccount = useAction(api.users.deleteAccount);
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
@@ -84,33 +84,33 @@ function SettingsComponent() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      // 1. Convex 側のデータ削除
+      const currentUser = auth?.currentUser;
+      if (!currentUser) {
+        throw new Error("認証情報が見つかりません。再ログインしてください。");
+      }
+
+      // 1. Firebase Auth ユーザーの削除を先に実行
+      await currentUser.delete();
+
+      // 2. Auth削除成功後にConvexのデータ削除
       await deleteAccount();
 
-      // 2. Firebase Auth ユーザーの削除
-      const currentUser = auth?.currentUser;
-      if (currentUser) {
-        try {
-          await currentUser.delete();
-        } catch (fbError) {
-          console.warn(
-            "Firebase user delete requires recent login. Logging out instead.",
-            fbError,
-          );
-          if (auth) {
-            await signOut(auth);
-          }
-        }
-      } else if (auth) {
-        await signOut(auth);
-      }
+      // 3. キャッシュのクリア
+      clearQueryCache();
 
       toast.success("退会処理が完了しました");
       await router.invalidate();
       await router.navigate({ to: "/" });
     } catch (error) {
       console.error(error);
-      toast.error("退会処理に失敗しました");
+      const err = error as { code?: string; message?: string };
+      if (err?.code === "auth/requires-recent-login") {
+        toast.error(
+          "セキュリティ保護のため、最近ログインしていない場合はこの操作を実行できません。一度ログアウトし、再ログインしてからやり直してください。",
+        );
+      } else {
+        toast.error(err?.message || "退会処理に失敗しました");
+      }
       setIsDeleting(false);
     }
   };

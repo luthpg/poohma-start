@@ -32,8 +32,9 @@ export function useConvexFirebaseAuth() {
         }
         try {
           return await auth.currentUser.getIdToken(forceRefreshToken);
-        } catch (_error) {
-          return null;
+        } catch (error) {
+          console.error("Failed to fetch access token:", error);
+          throw error;
         }
       },
     }),

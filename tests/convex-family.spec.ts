@@ -146,7 +146,7 @@ describe("2.1 家族管理とE2EE鍵ローテーションの統合テスト (Con
         ],
       };
 
-      const result = await userA.mutation(
+      const result = await userA.action(
         api.families.changeFamily,
         maliciousPayload,
       );

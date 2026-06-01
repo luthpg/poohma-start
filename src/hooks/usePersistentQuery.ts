@@ -1,8 +1,21 @@
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect } from "react";
 
-// Simple global memory cache for Convex query results to prevent loading flashes and preserve scroll positions
+// Simple memory cache for Convex query results to prevent loading flashes and preserve scroll positions
+// Map keeps insertion order, so we can use it as a simple LRU by deleting the first item when it gets too large
+const MAX_CACHE_SIZE = 1000;
 let queryCache = new Map<string, unknown>();
+
+function setCache(key: string, value: unknown) {
+  if (queryCache.size >= MAX_CACHE_SIZE && !queryCache.has(key)) {
+    // Delete the oldest entry (first inserted)
+    const firstKey = queryCache.keys().next().value;
+    if (firstKey) queryCache.delete(firstKey);
+  }
+  // Re-insert to make it the newest
+  queryCache.delete(key);
+  queryCache.set(key, value);
+}
 
 /**
  * A wrapper hook around Convex's useQuery that caches the last successful result in memory.
@@ -13,6 +26,14 @@ export function usePersistentQuery<T>(
   query: Parameters<typeof useQuery>[0],
   args?: Parameters<typeof useQuery>[1],
 ): T | undefined {
+  const { isAuthenticated } = useConvexAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      clearQueryCache();
+    }
+  }, [isAuthenticated]);
+
   const result = useQuery(query, args);
   // Create a unique key based on the query function and its arguments
   let queryKey = "";
@@ -28,7 +49,7 @@ export function usePersistentQuery<T>(
 
   useEffect(() => {
     if (result !== undefined) {
-      queryCache.set(cacheKey, result);
+      setCache(cacheKey, result);
     }
   }, [result, cacheKey]);
 

@@ -13,7 +13,7 @@ export function useExportCsv() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const records = await convex.query(api.records.getRecords, {});
+      const records = await convex.query(api.records.getOwnedRecords, {});
 
       // Convex レコードを CSV 行フォーマットに変換
       const data: Record<string, string>[] = records.map((record) => {

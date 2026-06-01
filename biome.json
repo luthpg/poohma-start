@@ -39,5 +39,13 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["convex/_generated/**/*"],
+      "linter": {
+        "enabled": false
+      }
+    }
+  ]
 }
