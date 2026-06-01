@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { Eye, EyeOff } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -82,7 +82,7 @@ function FamilyComponent() {
 
   const createFamilyMut = useMutation(api.families.createFamily);
   const joinFamilyMut = useMutation(api.families.joinFamily);
-  const changeFamilyMut = useAction(api.families.changeFamily);
+  const changeFamilyMut = useMutation(api.families.changeFamily);
 
   const [createName, setCreateName] = useState("");
   const [createPasscode, setCreatePasscode] = useState("");

@@ -4,7 +4,7 @@ import {
   redirect,
   useRouter,
 } from "@tanstack/react-router";
-import { useAction, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { AlertTriangle, Download } from "lucide-react";
 import { type SubmitEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -58,7 +58,7 @@ function SettingsComponent() {
   const { handleExport, isExporting } = useExportCsv();
 
   const updateProfile = useMutation(api.users.updateProfile);
-  const deleteAccount = useAction(api.users.deleteAccount);
+  const deleteAccount = useMutation(api.users.deleteAccount);
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();

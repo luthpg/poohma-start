@@ -1,7 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 
 export const getFamilyMembers = query({
   args: {},
@@ -140,20 +139,30 @@ export const getRecordsForReEncryption = query({
   },
 });
 
-export const initChangeFamily = internalMutation({
+export const changeFamily = mutation({
   args: {
-    userId: v.string(),
     action: v.union(v.literal("create"), v.literal("join")),
     name: v.optional(v.string()),
     masterKeyEncrypted: v.optional(v.string()),
     masterKeyIv: v.optional(v.string()),
     masterKeySalt: v.optional(v.string()),
     inviteCode: v.optional(v.string()), // string as it comes from form, we'll validate
+    credentials: v.array(
+      v.object({
+        id: v.string(),
+        passwordHint: v.string(),
+        passwordHintIv: v.string(),
+      })
+    ),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
     const user = await ctx.db
       .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
 
     if (!user) throw new Error("User not found");
@@ -180,42 +189,18 @@ export const initChangeFamily = internalMutation({
 
     // Update user familyId
     await ctx.db.patch(user._id, { familyId: parsedTargetFamilyId });
-    return parsedTargetFamilyId;
-  },
-});
 
-export const getRecordIdsForUser = internalQuery({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+    // Update familyId for all records owned by user
     const records = await ctx.db
       .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
-    return records.map((r) => r._id);
-  },
-});
 
-export const updateRecordsFamilyChunk = internalMutation({
-  args: {
-    recordIds: v.array(v.id("serviceRecords")),
-    targetFamilyId: v.id("families"),
-    credentials: v.array(
-      v.object({
-        id: v.string(),
-        passwordHint: v.string(),
-        passwordHintIv: v.string(),
-      })
-    ),
-  },
-  handler: async (ctx, args) => {
-    const credUpdates = new Map(args.credentials.map((c) => [c.id, c]));
+    const credUpdates = new Map(args.credentials.map(c => [c.id, c]));
 
-    for (const recordId of args.recordIds) {
-      const record = await ctx.db.get(recordId);
-      if (!record) continue;
-
+    for (const record of records) {
       let needsUpdate = false;
-      const newCredentials = record.credentials.map((cred) => {
+      const newCredentials = record.credentials.map(cred => {
         const update = credUpdates.get(cred.id);
         if (update) {
           needsUpdate = true;
@@ -228,63 +213,15 @@ export const updateRecordsFamilyChunk = internalMutation({
         return cred;
       });
 
-      if (record.familyId !== args.targetFamilyId || needsUpdate) {
+      if (record.familyId !== parsedTargetFamilyId || needsUpdate) {
         await ctx.db.patch(record._id, {
-          familyId: args.targetFamilyId,
+          familyId: parsedTargetFamilyId,
           credentials: newCredentials,
           updatedAt: Date.now(),
         });
       }
     }
-  },
-});
 
-export const changeFamily = action({
-  args: {
-    action: v.union(v.literal("create"), v.literal("join")),
-    name: v.optional(v.string()),
-    masterKeyEncrypted: v.optional(v.string()),
-    masterKeyIv: v.optional(v.string()),
-    masterKeySalt: v.optional(v.string()),
-    inviteCode: v.optional(v.string()), // string as it comes from form, we'll validate
-    credentials: v.array(
-      v.object({
-        id: v.string(),
-        passwordHint: v.string(),
-        passwordHintIv: v.string(),
-      })
-    ),
-  },
-  handler: async (ctx, args): Promise<{ success: boolean; familyId: Id<"families"> }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    // 1. Initial family creation/join
-    const familyId = (await ctx.runMutation(internal.families.initChangeFamily, {
-      userId,
-      action: args.action,
-      name: args.name,
-      masterKeyEncrypted: args.masterKeyEncrypted,
-      masterKeyIv: args.masterKeyIv,
-      masterKeySalt: args.masterKeySalt,
-      inviteCode: args.inviteCode,
-    })) as Id<"families">;
-
-    // 2. Fetch record IDs to update
-    const recordIds = (await ctx.runQuery(internal.families.getRecordIdsForUser, { userId })) as Id<"serviceRecords">[];
-
-    // 3. Loop to update records in chunks of 50
-    const chunkSize = 50;
-    for (let i = 0; i < recordIds.length; i += chunkSize) {
-      const chunk = recordIds.slice(i, i + chunkSize);
-      await ctx.runMutation(internal.families.updateRecordsFamilyChunk, {
-        recordIds: chunk,
-        targetFamilyId: familyId,
-        credentials: args.credentials,
-      });
-    }
-
-    return { success: true, familyId };
+    return { success: true, familyId: parsedTargetFamilyId };
   },
 });
