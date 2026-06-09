@@ -1,3 +1,4 @@
+import { SiGithub } from "@icons-pack/react-simple-icons";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
@@ -94,7 +95,7 @@ function RouteComponent() {
 
       {/* フッター */}
       <footer className="border-t border-border py-12 text-center text-sm text-muted-foreground">
-        <div className="mb-4 flex justify-center gap-6">
+        <div className="mb-4 flex justify-center items-center gap-6">
           <Link
             to="/terms-of-service"
             className="hover:text-foreground transition-colors"
@@ -107,6 +108,15 @@ function RouteComponent() {
           >
             プライバシーポリシー
           </Link>
+          <a
+            href="https://github.com/luthpg/poohma-start"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <SiGithub className="h-4 w-4" />
+            GitHub
+          </a>
         </div>
         &copy; 2026 PoohMa - Family Password Hint Manager
       </footer>

@@ -428,3 +428,95 @@ export const getOwnedRecords = query({
       .collect();
   },
 });
+
+export const deleteRecords = mutation({
+  args: { ids: v.array(v.id("serviceRecords")) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    for (const id of args.ids) {
+      const record = await ctx.db.get(id);
+      if (!record) continue;
+
+      const isOwner = record.userId === userId;
+      const isFamilyShared =
+        record.visibility === "SHARED" &&
+        record.familyId != null &&
+        record.familyId === user.familyId;
+
+      if (!isOwner && !isFamilyShared) {
+        throw new Error("Only the owner can delete this record");
+      }
+
+      await ctx.db.delete(id);
+    }
+  },
+});
+
+export const bulkUpdateRecords = mutation({
+  args: {
+    ids: v.array(v.id("serviceRecords")),
+    data: v.object({
+      visibility: v.optional(
+        v.union(v.literal("PRIVATE"), v.literal("SHARED")),
+      ),
+      tags: v.optional(v.array(v.string())),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    for (const id of args.ids) {
+      const record = await ctx.db.get(id);
+      if (!record) continue;
+
+      const isOwner = record.userId === userId;
+      const isFamilyShared =
+        record.visibility === "SHARED" &&
+        record.familyId != null &&
+        record.familyId === user.familyId;
+
+      if (!isOwner && !isFamilyShared) {
+        throw new Error("Only the owner can update this record");
+      }
+
+      const patchData: {
+        visibility?: "PRIVATE" | "SHARED";
+        tags?: string[];
+        updatedAt?: number;
+      } = {};
+
+      if (args.data.visibility !== undefined) {
+        patchData.visibility = args.data.visibility;
+      }
+
+      if (args.data.tags !== undefined) {
+        const mergedTags = Array.from(
+          new Set([...record.tags, ...args.data.tags]),
+        );
+        patchData.tags = mergedTags;
+      }
+
+      if (Object.keys(patchData).length > 0) {
+        patchData.updatedAt = Date.now();
+        await ctx.db.patch(id, patchData);
+      }
+    }
+  },
+});
