@@ -98,7 +98,7 @@ function FamilyComponent() {
       toast.error("ログアウトに失敗しました");
     }
   };
-  const copyQrCode = async () => {
+  const downloadOrShareQrCode = async () => {
     const canvas = document.getElementById(
       "qr-canvas",
     ) as HTMLCanvasElement | null;
@@ -112,16 +112,39 @@ function FamilyComponent() {
           toast.error("画像の生成に失敗しました");
           return;
         }
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [blob.type]: blob,
-          }),
-        ]);
-        toast.success("QRコード画像をクリップボードにコピーしました");
+
+        const fileName = `poohma-invite-${family?.name || "family"}.png`;
+        const file = new File([blob], fileName, { type: "image/png" });
+
+        // Web Share API でファイル共有可能な場合は画像共有を試みる
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: "PoohMa 家族招待",
+              text: `${family?.name || "家族グループ"}への招待QRコードです。`,
+            });
+            return;
+          } catch (err) {
+            if ((err as Error).name === "AbortError") return;
+            console.error("Share failed, falling back to download", err);
+          }
+        }
+
+        // 非対応またはPC環境の場合はダウンロード
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success("QRコード画像を保存しました");
       }, "image/png");
     } catch (err) {
       console.error(err);
-      toast.error("画像のコピーに対応していないブラウザです");
+      toast.error("画像の保存に失敗しました");
     }
   };
 
@@ -425,20 +448,22 @@ function FamilyComponent() {
                     コピー
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={copyQrCode}
-                    className="rounded-md bg-card px-3 py-1.5 text-[13px] font-medium text-foreground shadow-border hover:bg-accent transition flex flex-auto items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={downloadOrShareQrCode}
+                    className="rounded-md bg-card px-3 py-2 text-[13px] font-medium text-foreground shadow-border hover:bg-accent transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-initial"
                   >
-                    QRコード画像をコピー
+                    QRコード画像を保存
                   </button>
                   <button
                     type="button"
                     onClick={shareInviteUrl}
-                    className="rounded-md bg-card px-3 py-1.5 text-[13px] font-medium text-foreground shadow-border hover:bg-accent transition flex flex-auto items-center justify-center gap-1.5 cursor-pointer"
+                    className="rounded-md bg-card px-3 py-2 text-[13px] font-medium text-foreground shadow-border hover:bg-accent transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-initial"
                   >
-                    招待URLを共有・コピー
+                    {typeof navigator !== "undefined" && "share" in navigator
+                      ? "招待URLを共有"
+                      : "招待URLをコピー"}
                   </button>
                 </div>
                 <p className="text-[13px] text-muted-foreground">
