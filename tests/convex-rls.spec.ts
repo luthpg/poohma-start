@@ -95,19 +95,26 @@ describe("4. セキュリティ/アーキテクチャ特化テスト (Convex 認
       let recordAId!: Id<"serviceRecords">;
 
       await t.run(async (ctx) => {
+        const familyId = await ctx.db.insert("families", {
+          name: "Test Family",
+          updatedAt: Date.now(),
+        });
         await ctx.db.insert("users", {
           userId: "user_a",
           email: "a@example.com",
+          familyId,
           updatedAt: Date.now(),
         });
         await ctx.db.insert("users", {
           userId: "user_b",
           email: "b@example.com",
+          familyId,
           updatedAt: Date.now(),
         });
 
         recordAId = await ctx.db.insert("serviceRecords", {
           userId: "user_a",
+          familyId,
           title: "User A Record",
           visibility: "PRIVATE",
           credentials: [],
@@ -132,7 +139,7 @@ describe("4. セキュリティ/アーキテクチャ特化テスト (Convex 認
             tags: [],
           },
         }),
-      ).rejects.toThrow("Only the owner can update");
+      ).rejects.toThrow("Access denied");
     });
 
     it("他人のレコードを deleteRecord で削除しようとした場合、例外がスローされること", async () => {
@@ -141,19 +148,26 @@ describe("4. セキュリティ/アーキテクチャ特化テスト (Convex 認
       let recordAId!: Id<"serviceRecords">;
 
       await t.run(async (ctx) => {
+        const familyId = await ctx.db.insert("families", {
+          name: "Test Family",
+          updatedAt: Date.now(),
+        });
         await ctx.db.insert("users", {
           userId: "user_a",
           email: "a@example.com",
+          familyId,
           updatedAt: Date.now(),
         });
         await ctx.db.insert("users", {
           userId: "user_b",
           email: "b@example.com",
+          familyId,
           updatedAt: Date.now(),
         });
 
         recordAId = await ctx.db.insert("serviceRecords", {
           userId: "user_a",
+          familyId,
           title: "User A Record",
           visibility: "PRIVATE",
           credentials: [],
@@ -170,7 +184,7 @@ describe("4. セキュリティ/アーキテクチャ特化テスト (Convex 認
 
       await expect(
         userB.mutation(api.records.deleteRecord, { id: recordAId }),
-      ).rejects.toThrow("Only the owner can delete");
+      ).rejects.toThrow("Access denied");
     });
   });
 });
