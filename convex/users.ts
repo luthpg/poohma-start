@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, mutation, query } from "./_generated/server";
+import { authenticatedMutation } from "./customBuilders";
 
 /**
  * ユーザー同期（ログイン時に呼ばれる）
@@ -98,25 +99,12 @@ export const syncUser = mutation({
   },
 });
 
-export const updateProfile = mutation({
+export const updateProfile = authenticatedMutation({
   args: {
     displayName: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const { user } = ctx;
 
     await ctx.db.patch(user._id, {
       displayName: args.displayName.trim(),
@@ -127,28 +115,15 @@ export const updateProfile = mutation({
   },
 });
 
-export const deleteAccount = mutation({
+export const deleteAccount = authenticatedMutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const { user } = ctx;
 
     // 1. ユーザーが作成した serviceRecords の削除
     const records = await ctx.db
       .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
     for (const record of records) {
@@ -162,7 +137,7 @@ export const deleteAccount = mutation({
       const familyMembers = await ctx.db.query("users").collect();
 
       const otherMembers = familyMembers.filter(
-        (u) => u.familyId === familyId && u.userId !== userId,
+        (u) => u.familyId === familyId && u.userId !== user.userId,
       );
 
       // 他のメンバーがいない場合は家族も削除

@@ -1,8 +1,13 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
-import { internalQuery, mutation, query } from "./_generated/server";
+import { internalQuery, type QueryCtx } from "./_generated/server";
+import {
+  authenticatedMutation,
+  authenticatedQuery,
+  familyBoundMutation,
+  familyBoundQuery,
+} from "./customBuilders";
 
 export const getFamilyMembersByFamilyId = async (
   ctx: QueryCtx,
@@ -45,25 +50,15 @@ export const getFamilyMembersInternal = internalQuery({
   },
 });
 
-export const getFamilyMembers = query({
+export const getFamilyMembers = familyBoundQuery({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user?.familyId) return null;
-
-    return await getFamilyMembersById(ctx, userId);
+    const { user } = ctx;
+    return await getFamilyMembersById(ctx, user.userId);
   },
 });
 
-export const createFamily = mutation({
+export const createFamily = authenticatedMutation({
   args: {
     name: v.string(),
     masterKeyEncrypted: v.optional(v.string()),
@@ -71,17 +66,7 @@ export const createFamily = mutation({
     masterKeySalt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) throw new Error("User not found");
-    if (user.familyId) throw new Error("Already in a family");
+    const { user } = ctx;
 
     const familyId = await ctx.db.insert("families", {
       name: args.name,
@@ -103,22 +88,12 @@ export const createFamily = mutation({
   },
 });
 
-export const joinFamily = mutation({
+export const joinFamily = authenticatedMutation({
   args: {
     inviteCode: v.id("families"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) throw new Error("User not found");
-    if (user.familyId) throw new Error("Already in a family");
+    const { user } = ctx;
 
     const family = await ctx.db.get(args.inviteCode);
     if (!family) throw new Error("Invalid invite code");
@@ -137,28 +112,26 @@ export const joinFamily = mutation({
         familyId: family._id,
       },
     );
-    if (!familyMembers) throw new Error("Family members not found");
-    await Promise.all(
-      familyMembers.users.map((member) => {
-        if (member.email === user.email) return null;
-        return ctx.scheduler.runAfter(0, internal.actions.sendEmailInternal, {
-          email: member.email,
-          subject: `[PoohMa] ${family.name} に新しいメンバーが参加しました！`,
-          body: `-=-=-=-=-=-=-=-=-=-\n※本メールは送信専用アドレスから送信しています。\n-=-=-=-=-=-=-=-=-=-\n\n${member.displayName} さん\n\nこんにちは！家族間アカウント管理アプリ「PoohMa」からお知らせです。\n\n家族名「${family.name}」へ新しいメンバーが参加しました。\n\n※なんらかの誤りであると考えられる場合はお手数ですが運営にご連絡ください。\n\n[PoohMa]\nhttps://poohma.vercel.app/`,
-        });
-      }),
-    );
+    if (familyMembers) {
+      await Promise.all(
+        familyMembers.users.map((member) => {
+          if (member.email === user.email) return null;
+          return ctx.scheduler.runAfter(0, internal.actions.sendEmailInternal, {
+            email: member.email,
+            subject: `[PoohMa] ${family.name} に新しいメンバーが参加しました！`,
+            body: `-=-=-=-=-=-=-=-=-=-\n※本メールは送信専用アドレスから送信しています。\n-=-=-=-=-=-=-=-=-=-\n\n${member.displayName} さん\n\nこんにちは！家族間アカウント管理アプリ「PoohMa」からお知らせです。\n\n家族名「${family.name}」へ新しいメンバーが参加しました。\n\n※なんらかの誤りであると考えられる場合はお手数ですが運営にご連絡ください。\n\n[PoohMa]\nhttps://poohma.vercel.app/`,
+          });
+        }),
+      );
+    }
 
     return family._id;
   },
 });
 
-export const getFamilyInfoByInviteCode = query({
+export const getFamilyInfoByInviteCode = authenticatedQuery({
   args: { inviteCode: v.id("families") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-
     const family = await ctx.db.get(args.inviteCode);
     if (!family) throw new Error("Invalid invite code");
 
@@ -172,16 +145,14 @@ export const getFamilyInfoByInviteCode = query({
   },
 });
 
-export const getRecordsForReEncryption = query({
+export const getRecordsForReEncryption = familyBoundQuery({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
+    const { user } = ctx;
 
     const records = await ctx.db
       .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
     return records
@@ -200,7 +171,7 @@ export const getRecordsForReEncryption = query({
   },
 });
 
-export const changeFamily = mutation({
+export const changeFamily = familyBoundMutation({
   args: {
     action: v.union(v.literal("create"), v.literal("join")),
     name: v.optional(v.string()),
@@ -217,17 +188,7 @@ export const changeFamily = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) throw new Error("User not found");
-
+    const { user } = ctx;
     let parsedTargetFamilyId: Id<"families">;
 
     if (args.action === "create") {
@@ -259,7 +220,7 @@ export const changeFamily = mutation({
     // Update familyId for all records owned by user
     const records = await ctx.db
       .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
     const credUpdates = new Map(args.credentials.map((c) => [c.id, c]));
