@@ -9,8 +9,10 @@
  */
 
 import type * as actions from "../actions.js";
+import type * as customBuilders from "../customBuilders.js";
 import type * as families from "../families.js";
 import type * as records from "../records.js";
+import type * as rls from "../rls.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,8 +23,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   actions: typeof actions;
+  customBuilders: typeof customBuilders;
   families: typeof families;
   records: typeof records;
+  rls: typeof rls;
   users: typeof users;
 }>;
 

@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { z } from "zod";
 import { CredentialInputSchema, RecordInputSchema } from "../src/utils/schemas";
-import { mutation, query } from "./_generated/server";
+import { authenticatedQuery, familyBoundMutation } from "./customBuilders";
+import { requireRecordAccess } from "./rls";
 
 const ConvexCredentialInputSchema = CredentialInputSchema.extend({
   id: z.string(),
@@ -13,7 +14,7 @@ const ConvexRecordInputSchema = RecordInputSchema.extend({
 
 // === Queries ===
 
-export const getRecords = query({
+export const getRecords = authenticatedQuery({
   args: {
     q: v.optional(v.string()),
     tag: v.optional(v.string()),
@@ -21,25 +22,12 @@ export const getRecords = query({
     // page: v.optional(v.number()), // TODO: Implement cursor-based pagination with Convex paginated query
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated call to getRecords");
-    }
-    const userId = identity.subject; // Firebase UID from subject
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const { user } = ctx;
 
     // 自身のレコードと家族で共有設定のレコードをインデックスを活用して個別に取得
     const ownRecords = await ctx.db
       .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
     const sharedRecords = user.familyId
@@ -91,34 +79,16 @@ export const getRecords = query({
   },
 });
 
-export const getRecordDetail = query({
+export const getRecordDetail = authenticatedQuery({
   args: { id: v.id("serviceRecords") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated call to getRecordDetail");
-    }
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
     const record = await ctx.db.get(args.id);
     if (!record) {
       throw new Error("Record not found");
     }
 
-    const hasAccess =
-      record.userId === userId ||
-      (user &&
-        record.familyId === user.familyId &&
-        record.visibility === "SHARED");
-
-    if (!hasAccess) {
-      throw new Error("Access denied");
-    }
+    // アクセス権のチェック（IDOR対策の確実な実行）
+    requireRecordAccess(ctx.user, record);
 
     const recordOwner = await ctx.db
       .query("users")
@@ -137,26 +107,17 @@ export const getRecordDetail = query({
   },
 });
 
-export const getAvailableTags = query({
+export const getAvailableTags = authenticatedQuery({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
+    const { user } = ctx;
 
     const ownRecords = await ctx.db
       .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
-    const sharedRecords = user?.familyId
+    const sharedRecords = user.familyId
       ? await ctx.db
           .query("serviceRecords")
           .withIndex("by_familyId_visibility", (q) =>
@@ -182,9 +143,21 @@ export const getAvailableTags = query({
   },
 });
 
+export const getOwnedRecords = authenticatedQuery({
+  args: {},
+  handler: async (ctx) => {
+    const { user } = ctx;
+
+    return await ctx.db
+      .query("serviceRecords")
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
+      .collect();
+  },
+});
+
 // === Mutations ===
 
-export const createRecord = mutation({
+export const createRecord = familyBoundMutation({
   args: {
     title: v.string(),
     url: v.optional(v.string()),
@@ -211,17 +184,7 @@ export const createRecord = mutation({
       );
     }
 
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) throw new Error("User not found in DB");
-    if (!user.familyId) throw new Error("User does not belong to a family");
+    const { user } = ctx;
 
     const recordId = await ctx.db.insert("serviceRecords", {
       title: args.title,
@@ -230,7 +193,7 @@ export const createRecord = mutation({
       ogpDescription: args.ogpDescription,
       memo: args.memo,
       visibility: args.visibility,
-      userId,
+      userId: user.userId,
       familyId: user.familyId,
       credentials: args.credentials,
       tags: args.tags,
@@ -241,7 +204,7 @@ export const createRecord = mutation({
   },
 });
 
-export const updateRecord = mutation({
+export const updateRecord = familyBoundMutation({
   args: {
     id: v.id("serviceRecords"),
     data: v.object({
@@ -271,28 +234,11 @@ export const updateRecord = mutation({
       );
     }
 
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!user) throw new Error("User not found");
-
     const record = await ctx.db.get(args.id);
     if (!record) throw new Error("Record not found");
 
-    const isOwner = record.userId === userId;
-    const isFamilyShared =
-      record.visibility === "SHARED" &&
-      record.familyId != null &&
-      record.familyId === user.familyId;
-
-    if (!isOwner && !isFamilyShared) {
-      throw new Error("Only the owner can update this record");
-    }
+    // アクセス権のチェック（IDOR対策の確実な実行）
+    requireRecordAccess(ctx.user, record);
 
     await ctx.db.patch(args.id, {
       ...args.data,
@@ -301,37 +247,35 @@ export const updateRecord = mutation({
   },
 });
 
-export const deleteRecord = mutation({
+export const deleteRecord = familyBoundMutation({
   args: { id: v.id("serviceRecords") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!user) throw new Error("User not found");
-
     const record = await ctx.db.get(args.id);
     if (!record) throw new Error("Record not found");
 
-    const isOwner = record.userId === userId;
-    const isFamilyShared =
-      record.visibility === "SHARED" &&
-      record.familyId != null &&
-      record.familyId === user.familyId;
-
-    if (!isOwner && !isFamilyShared) {
-      throw new Error("Only the owner can delete this record");
-    }
+    // アクセス権のチェック（IDOR対策の確実な実行）
+    requireRecordAccess(ctx.user, record);
 
     await ctx.db.delete(args.id);
   },
 });
 
-export const importRecords = mutation({
+export const deleteRecords = familyBoundMutation({
+  args: { ids: v.array(v.id("serviceRecords")) },
+  handler: async (ctx, args) => {
+    for (const id of args.ids) {
+      const record = await ctx.db.get(id);
+      if (!record) continue;
+
+      // アクセス権のチェック（IDOR対策の確実な実行）
+      requireRecordAccess(ctx.user, record);
+
+      await ctx.db.delete(id);
+    }
+  },
+});
+
+export const importRecords = familyBoundMutation({
   args: {
     records: v.array(
       v.object({
@@ -355,17 +299,7 @@ export const importRecords = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) throw new Error("User not found in DB");
-    if (!user.familyId) throw new Error("家族グループに所属していません。");
+    const { user } = ctx;
 
     if (args.records.length > 500) {
       throw new Error(
@@ -396,7 +330,7 @@ export const importRecords = mutation({
           ogpDescription: record.ogpDescription,
           memo: record.memo,
           visibility: record.visibility,
-          userId,
+          userId: user.userId,
           familyId: user.familyId,
           credentials: record.credentials,
           tags: record.tags,
@@ -415,53 +349,7 @@ export const importRecords = mutation({
   },
 });
 
-export const getOwnedRecords = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    return await ctx.db
-      .query("serviceRecords")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-  },
-});
-
-export const deleteRecords = mutation({
-  args: { ids: v.array(v.id("serviceRecords")) },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!user) throw new Error("User not found");
-
-    for (const id of args.ids) {
-      const record = await ctx.db.get(id);
-      if (!record) continue;
-
-      const isOwner = record.userId === userId;
-      const isFamilyShared =
-        record.visibility === "SHARED" &&
-        record.familyId != null &&
-        record.familyId === user.familyId;
-
-      if (!isOwner && !isFamilyShared) {
-        throw new Error("Only the owner can delete this record");
-      }
-
-      await ctx.db.delete(id);
-    }
-  },
-});
-
-export const bulkUpdateRecords = mutation({
+export const bulkUpdateRecords = familyBoundMutation({
   args: {
     ids: v.array(v.id("serviceRecords")),
     data: v.object({
@@ -472,29 +360,12 @@ export const bulkUpdateRecords = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const userId = identity.subject;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    if (!user) throw new Error("User not found");
-
     for (const id of args.ids) {
       const record = await ctx.db.get(id);
       if (!record) continue;
 
-      const isOwner = record.userId === userId;
-      const isFamilyShared =
-        record.visibility === "SHARED" &&
-        record.familyId != null &&
-        record.familyId === user.familyId;
-
-      if (!isOwner && !isFamilyShared) {
-        throw new Error("Only the owner can update this record");
-      }
+      // アクセス権のチェック（IDOR対策の確実な実行）
+      requireRecordAccess(ctx.user, record);
 
       const patchData: {
         visibility?: "PRIVATE" | "SHARED";
