@@ -164,9 +164,12 @@ export function UserMenu({
               for (let i = 1; i <= 10; i++) {
                 const hint = newRow[`PasswordHint${i}`];
                 if (hint) {
-                  const { encrypted, iv } = await encryptHint(hint);
+                  const { encrypted, iv, dekEncrypted, dekIv } =
+                    await encryptHint(hint);
                   newRow[`PasswordHint${i}`] = encrypted;
                   newRow[`PasswordHintIv${i}`] = iv;
+                  newRow[`PasswordHintDekEncrypted${i}`] = dekEncrypted;
+                  newRow[`PasswordHintDekIv${i}`] = dekIv;
                 }
               }
               return newRow;
@@ -187,6 +190,9 @@ export function UserMenu({
               const loginId = row[`LoginID${i}`];
               const passwordHint = row[`PasswordHint${i}`];
               const passwordHintIv = row[`PasswordHintIv${i}`];
+              const passwordHintDekEncrypted =
+                row[`PasswordHintDekEncrypted${i}`];
+              const passwordHintDekIv = row[`PasswordHintDekIv${i}`];
               if (label || loginId || passwordHint) {
                 credentials.push({
                   id: crypto.randomUUID(),
@@ -195,6 +201,12 @@ export function UserMenu({
                   passwordHint: String(passwordHint || "") || undefined,
                   passwordHintIv: passwordHintIv
                     ? String(passwordHintIv)
+                    : undefined,
+                  passwordHintDekEncrypted: passwordHintDekEncrypted
+                    ? String(passwordHintDekEncrypted)
+                    : undefined,
+                  passwordHintDekIv: passwordHintDekIv
+                    ? String(passwordHintDekIv)
                     : undefined,
                 });
               }

@@ -3,8 +3,11 @@ import {
   decrypt,
   deriveKeyFromPasscode,
   encrypt,
+  generateDEK,
   generateMasterKey,
+  unwrapDEK,
   unwrapMasterKey,
+  wrapDEK,
   wrapMasterKey,
 } from "@/lib/crypto"; // 各自のパスエイリアスに合わせて調整してください
 
@@ -176,6 +179,115 @@ describe("1.1 暗号化コアロジックの単体テスト (src/lib/crypto.ts)"
       await expect(
         unwrapMasterKey(wrapped.encrypted, wrapped.iv, wrongWrappingKey),
       ).rejects.toThrow();
+    });
+  });
+
+  describe("1.2 エンベロープ暗号 (DEK) のテスト", () => {
+    const SECRET_DATA = "SensitiveHintData-Envelope-123";
+
+    it("DEKの生成、ラップ、アンラップが正常に連動し、データが復号できること", async () => {
+      // 1. マスターキー（KEK）の生成
+      const masterKey = await generateMasterKey();
+
+      // 2. DEKの生成
+      const dek = await generateDEK();
+      expect(dek.type).toBe("secret");
+      expect(dek.algorithm.name).toBe("AES-GCM");
+
+      // 3. DEKをマスターキーでラップ
+      const wrappedDEK = await wrapDEK(dek, masterKey);
+      expect(wrappedDEK.encrypted).toBeTypeOf("string");
+      expect(wrappedDEK.iv).toBeTypeOf("string");
+
+      // 4. DEKをマスターキーでアンラップ
+      const unwrappedDEK = await unwrapDEK(
+        wrappedDEK.encrypted,
+        wrappedDEK.iv,
+        masterKey,
+      );
+      expect(unwrappedDEK.type).toBe("secret");
+      expect(unwrappedDEK.algorithm.name).toBe("AES-GCM");
+
+      // 5. アンラップされたDEKでデータを暗号化・復号
+      const { encrypted, iv } = await encrypt(SECRET_DATA, unwrappedDEK);
+      const decrypted = await decrypt(encrypted, iv, unwrappedDEK);
+      expect(decrypted).toBe(SECRET_DATA);
+    });
+
+    it("無効なマスターキーでDEKのアンラップを試みた場合、エラーをスローすること", async () => {
+      const masterKeyCorrect = await generateMasterKey();
+      const masterKeyWrong = await generateMasterKey();
+
+      const dek = await generateDEK();
+      const wrappedDEK = await wrapDEK(dek, masterKeyCorrect);
+
+      // 誤ったマスターキーでのアンラップはエラーになること
+      await expect(
+        unwrapDEK(wrappedDEK.encrypted, wrappedDEK.iv, masterKeyWrong),
+      ).rejects.toThrow();
+    });
+
+    it("旧形式（マスターキーによる直接暗号化）と新形式（DEK暗号化）の両方から正しくデータを復号できること（互換性の検証）", async () => {
+      const masterKey = await generateMasterKey();
+
+      // 1. 旧形式: マスターキーで直接暗号化
+      const oldEncrypted = await encrypt(SECRET_DATA, masterKey);
+
+      // 2. 新形式: DEKで暗号化
+      const dek = await generateDEK();
+      const wrappedDEK = await wrapDEK(dek, masterKey);
+      const newEncrypted = await encrypt(SECRET_DATA, dek);
+
+      // 復号関数を利用して、それぞれ復号できることを確認
+      // 旧形式
+      const oldDecrypted = await decrypt(
+        oldEncrypted.encrypted,
+        oldEncrypted.iv,
+        masterKey,
+      );
+      expect(oldDecrypted).toBe(SECRET_DATA);
+
+      // 新形式
+      const unwrappedDEK = await unwrapDEK(
+        wrappedDEK.encrypted,
+        wrappedDEK.iv,
+        masterKey,
+      );
+      const newDecrypted = await decrypt(
+        newEncrypted.encrypted,
+        newEncrypted.iv,
+        unwrappedDEK,
+      );
+      expect(newDecrypted).toBe(SECRET_DATA);
+    });
+
+    it("マスターキーのローテーション時、アンラップされたDEKから再ラップが行えること", async () => {
+      const oldMasterKey = await generateMasterKey();
+      const newMasterKey = await generateMasterKey();
+
+      const dek = await generateDEK();
+      const wrappedDEKOld = await wrapDEK(dek, oldMasterKey);
+
+      // 古いマスターキーでアンラップ
+      const unwrappedDEK = await unwrapDEK(
+        wrappedDEKOld.encrypted,
+        wrappedDEKOld.iv,
+        oldMasterKey,
+      );
+
+      // 新しいマスターキーで再ラップ
+      const wrappedDEKNew = await wrapDEK(unwrappedDEK, newMasterKey);
+      expect(wrappedDEKNew.encrypted).not.toBe(wrappedDEKOld.encrypted);
+
+      // 新しいマスターキーでアンラップして動作確認
+      const unwrappedDEKNew = await unwrapDEK(
+        wrappedDEKNew.encrypted,
+        wrappedDEKNew.iv,
+        newMasterKey,
+      );
+      const { encrypted, iv } = await encrypt(SECRET_DATA, unwrappedDEKNew);
+      const decrypted = await decrypt(encrypted, iv, unwrappedDEKNew);
+      expect(decrypted).toBe(SECRET_DATA);
     });
   });
 });

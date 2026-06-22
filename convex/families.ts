@@ -199,6 +199,8 @@ export const getRecordsForReEncryption = familyBoundQuery({
             id: c.id,
             passwordHint: c.passwordHint,
             passwordHintIv: c.passwordHintIv,
+            passwordHintDekEncrypted: c.passwordHintDekEncrypted,
+            passwordHintDekIv: c.passwordHintDekIv,
           })),
       }))
       .filter((record) => record.credentials.length > 0);
@@ -218,6 +220,8 @@ export const changeFamily = familyBoundMutation({
         id: v.string(),
         passwordHint: v.string(),
         passwordHintIv: v.string(),
+        passwordHintDekEncrypted: v.optional(v.string()),
+        passwordHintDekIv: v.optional(v.string()),
       }),
     ),
   },
@@ -288,6 +292,8 @@ export const changeFamily = familyBoundMutation({
             ...cred,
             passwordHint: update.passwordHint,
             passwordHintIv: update.passwordHintIv,
+            passwordHintDekEncrypted: update.passwordHintDekEncrypted,
+            passwordHintDekIv: update.passwordHintDekIv,
           };
         }
         return cred;

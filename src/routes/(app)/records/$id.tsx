@@ -189,7 +189,12 @@ function RecordDetailComponent({
         record.credentials.map(async (c) => {
           if (c.passwordHint && c.passwordHintIv) {
             try {
-              const plain = await decryptHint(c.passwordHint, c.passwordHintIv);
+              const plain = await decryptHint(
+                c.passwordHint,
+                c.passwordHintIv,
+                c.passwordHintDekEncrypted,
+                c.passwordHintDekIv,
+              );
               return {
                 label: c.label || "",
                 loginId: c.loginId || "",
@@ -247,13 +252,17 @@ function RecordDetailComponent({
       const encryptedCreds = await Promise.all(
         filteredCreds.map(async (cred) => {
           if (cred.passwordHint) {
-            const { encrypted, iv } = await encryptHint(cred.passwordHint);
+            const { encrypted, iv, dekEncrypted, dekIv } = await encryptHint(
+              cred.passwordHint,
+            );
             return {
               id: crypto.randomUUID(),
               label: cred.label,
               loginId: cred.loginId,
               passwordHint: encrypted,
               passwordHintIv: iv,
+              passwordHintDekEncrypted: dekEncrypted,
+              passwordHintDekIv: dekIv,
             };
           }
           return {
@@ -262,6 +271,8 @@ function RecordDetailComponent({
             loginId: cred.loginId,
             passwordHint: cred.passwordHint,
             passwordHintIv: undefined,
+            passwordHintDekEncrypted: undefined,
+            passwordHintDekIv: undefined,
           };
         }),
       );
@@ -593,6 +604,9 @@ function RecordDetailComponent({
                           loginId: c.loginId || "",
                           passwordHint: c.passwordHint || "",
                           passwordHintIv: c.passwordHintIv || undefined,
+                          passwordHintDekEncrypted:
+                            c.passwordHintDekEncrypted || undefined,
+                          passwordHintDekIv: c.passwordHintDekIv || undefined,
                         })),
                         tags: record.tags,
                       },
@@ -760,6 +774,8 @@ function CredentialCard({
     loginId?: string;
     passwordHint?: string;
     passwordHintIv?: string;
+    passwordHintDekEncrypted?: string;
+    passwordHintDekIv?: string;
   };
 }) {
   const { decryptHint, requireUnlock } = usePasscode();
@@ -778,6 +794,8 @@ function CredentialCard({
       const plaintext = await decryptHint(
         cred.passwordHint,
         cred.passwordHintIv,
+        cred.passwordHintDekEncrypted,
+        cred.passwordHintDekIv,
       );
       setDecryptedHint(plaintext);
     } catch (error) {
