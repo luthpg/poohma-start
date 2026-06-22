@@ -57,8 +57,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // Google Search Console認証用
       {
         name: "google-site-verification",
-        content:
-          "Xwlu3JEEZcvhMmYC-BoHyCRizCC90oefBJCbX5852lM",
+        content: "Xwlu3JEEZcvhMmYC-BoHyCRizCC90oefBJCbX5852lM",
       },
       // OGP
       { property: "og:type", content: "website" },

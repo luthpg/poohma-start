@@ -54,6 +54,8 @@ export default defineSchema({
         loginId: v.optional(v.string()),
         passwordHint: v.optional(v.string()),
         passwordHintIv: v.optional(v.string()),
+        passwordHintDekEncrypted: v.optional(v.string()),
+        passwordHintDekIv: v.optional(v.string()),
       }),
     ),
 
@@ -63,6 +65,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
+    .index("by_familyId", ["familyId"])
     .index("by_familyId_visibility", ["familyId", "visibility"])
     .index("by_updatedAt", ["updatedAt"]),
 });

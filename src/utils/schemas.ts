@@ -17,6 +17,8 @@ export const CredentialInputSchema = z
       .optional(),
     passwordHint: z.string().optional(),
     passwordHintIv: z.string().optional(),
+    passwordHintDekEncrypted: z.string().optional(),
+    passwordHintDekIv: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const hasHint = !!data.passwordHint;
@@ -25,7 +27,7 @@ export const CredentialInputSchema = z
     // passwordHint が非空なら IV も必須（暗号化済みであることの証明）
     if (hasHint && !hasIv) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message:
           "パスワードヒントは暗号化して送信する必要があります（IVが不足しています）",
         path: ["passwordHintIv"],
@@ -35,7 +37,7 @@ export const CredentialInputSchema = z
     // IV があるのに hint が空はあり得ない
     if (!hasHint && hasIv) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "IVが存在しますがパスワードヒントが空です",
         path: ["passwordHint"],
       });
@@ -44,7 +46,7 @@ export const CredentialInputSchema = z
     // 非空の passwordHint は Base64 形式であること
     if (hasHint && !BASE64_REGEX.test(data.passwordHint as string)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message:
           "パスワードヒントはBase64形式（暗号化済み）である必要があります",
         path: ["passwordHint"],
@@ -54,9 +56,30 @@ export const CredentialInputSchema = z
     // 非空の passwordHintIv は Base64 形式であること
     if (hasIv && !BASE64_REGEX.test(data.passwordHintIv as string)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "IVはBase64形式である必要があります",
         path: ["passwordHintIv"],
+      });
+    }
+
+    // 非空の passwordHintDekEncrypted は Base64 形式であること
+    if (
+      data.passwordHintDekEncrypted &&
+      !BASE64_REGEX.test(data.passwordHintDekEncrypted)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "DEK暗号データはBase64形式である必要があります",
+        path: ["passwordHintDekEncrypted"],
+      });
+    }
+
+    // 非空の passwordHintDekIv は Base64 形式であること
+    if (data.passwordHintDekIv && !BASE64_REGEX.test(data.passwordHintDekIv)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "DEK IVはBase64形式である必要があります",
+        path: ["passwordHintDekIv"],
       });
     }
   });
@@ -95,7 +118,6 @@ export const ChangeFamilyInputSchema = z.object({
   // join用
   inviteCode: z.string().optional(),
 
-  // 再暗号化された認証情報のリスト
   credentials: z.array(
     z.object({
       id: z.string(),
@@ -106,6 +128,18 @@ export const ChangeFamilyInputSchema = z.object({
       passwordHintIv: z.string().regex(BASE64_REGEX, {
         message: "IVはBase64形式である必要があります",
       }),
+      passwordHintDekEncrypted: z
+        .string()
+        .regex(BASE64_REGEX, {
+          message: "DEK暗号データはBase64形式である必要があります",
+        })
+        .optional(),
+      passwordHintDekIv: z
+        .string()
+        .regex(BASE64_REGEX, {
+          message: "DEK IVはBase64形式である必要があります",
+        })
+        .optional(),
     }),
   ),
 });

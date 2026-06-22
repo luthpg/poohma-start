@@ -29,15 +29,29 @@ import {
   decrypt,
   deriveKeyFromPasscode,
   encrypt,
+  generateDEK,
+  unwrapDEK,
   unwrapMasterKey,
+  wrapDEK,
 } from "@/lib/crypto";
 
 interface PasscodeContextType {
   masterKey: CryptoKey | null;
+  getMasterKey: () => CryptoKey | null;
   unlock: (passcode: string) => Promise<boolean>;
   requireUnlock: () => Promise<boolean>;
-  decryptHint: (encrypted: string, iv: string) => Promise<string>;
-  encryptHint: (text: string) => Promise<{ encrypted: string; iv: string }>;
+  decryptHint: (
+    encrypted: string,
+    iv: string,
+    dekEncrypted?: string,
+    dekIv?: string,
+  ) => Promise<string>;
+  encryptHint: (text: string) => Promise<{
+    encrypted: string;
+    iv: string;
+    dekEncrypted: string;
+    dekIv: string;
+  }>;
   isLocked: boolean;
   disableBiometric: () => Promise<void>;
 }
@@ -122,16 +136,42 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
-  const decryptHint = useCallback(async (encrypted: string, iv: string) => {
-    const key = masterKeyRef.current;
-    if (!key) throw new Error("Master key is not available");
-    return await decrypt(encrypted, iv, key);
-  }, []);
+  const decryptHint = useCallback(
+    async (
+      encrypted: string,
+      iv: string,
+      dekEncrypted?: string,
+      dekIv?: string,
+    ) => {
+      const masterKey = masterKeyRef.current;
+      if (!masterKey) throw new Error("Master key is not available");
+
+      // エンベロープ暗号方式: DEKが提供されていればDEKを復号して使う、なければ（過去データ）マスターキーを直接使う
+      let decryptionKey = masterKey;
+      if (dekEncrypted && dekIv) {
+        decryptionKey = await unwrapDEK(dekEncrypted, dekIv, masterKey);
+      }
+
+      return await decrypt(encrypted, iv, decryptionKey);
+    },
+    [],
+  );
 
   const encryptHint = useCallback(async (text: string) => {
-    const key = masterKeyRef.current;
-    if (!key) throw new Error("Master key is not available");
-    return await encrypt(text, key);
+    const masterKey = masterKeyRef.current;
+    if (!masterKey) throw new Error("Master key is not available");
+
+    // エンベロープ暗号方式: 新しいDEKを生成し、DEKでデータを暗号化、DEKをマスターキーでラップ
+    const dek = await generateDEK();
+    const dataEncrypted = await encrypt(text, dek);
+    const dekWrapped = await wrapDEK(dek, masterKey);
+
+    return {
+      encrypted: dataEncrypted.encrypted,
+      iv: dataEncrypted.iv,
+      dekEncrypted: dekWrapped.encrypted,
+      dekIv: dekWrapped.iv,
+    };
   }, []);
 
   const isLocked = !!user?.familyId && !masterKey;
@@ -221,6 +261,9 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
       resolvePromiseRef.current = null;
     }
   };
+  const getMasterKey = useCallback(() => {
+    return masterKeyRef.current;
+  }, []);
 
   useEffect(() => {
     // パスコード入力ダイアログが表示されていて、かつ生体認証が利用できない場合は、パスコード入力欄にフォーカスする
@@ -240,6 +283,7 @@ export function PasscodeProvider({ children }: { children: React.ReactNode }) {
     <PasscodeContext.Provider
       value={{
         masterKey,
+        getMasterKey,
         unlock,
         requireUnlock,
         decryptHint,

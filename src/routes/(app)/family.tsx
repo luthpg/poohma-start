@@ -14,9 +14,12 @@ import { clearQueryCache } from "@/hooks/usePersistentQuery";
 import {
   deriveKeyFromPasscode,
   encrypt,
+  generateDEK,
   generateMasterKey,
   generateSalt,
+  unwrapDEK,
   unwrapMasterKey,
+  wrapDEK,
   wrapMasterKey,
 } from "@/lib/crypto";
 import { logout } from "@/services/auth.functions";
@@ -203,7 +206,7 @@ function FamilyComponent() {
     useState(false);
   const [showJoinPasscode, setShowJoinPasscode] = useState(false);
 
-  const { masterKey, requireUnlock, decryptHint } = usePasscode();
+  const { getMasterKey, requireUnlock, decryptHint } = usePasscode();
   const [isChangingFamily, setIsChangingFamily] = useState(
     !!search.inviteCode && family !== undefined && family !== null,
   );
@@ -242,7 +245,7 @@ function FamilyComponent() {
     setIsLoading(true);
     try {
       // 1. セッションに旧マスターキーがあるか確認、なければロック解除を要求
-      if (!masterKey) {
+      if (!getMasterKey()) {
         const unlocked = await requireUnlock();
         if (!unlocked) {
           setIsLoading(false);
@@ -281,21 +284,46 @@ function FamilyComponent() {
         id: string;
         passwordHint: string;
         passwordHintIv: string;
+        passwordHintDekEncrypted?: string;
+        passwordHintDekIv?: string;
       }[] = [];
 
       for (const record of recordsToReEncrypt) {
         for (const cred of record.credentials) {
           if (cred.passwordHint && cred.passwordHintIv) {
-            const plainHint = await decryptHint(
-              cred.passwordHint,
-              cred.passwordHintIv,
-            );
-            const { encrypted, iv } = await encrypt(plainHint, newMasterKey);
-            reEncryptedCredentials.push({
-              id: cred.id,
-              passwordHint: encrypted,
-              passwordHintIv: iv,
-            });
+            if (cred.passwordHintDekEncrypted && cred.passwordHintDekIv) {
+              const oldMasterKey = getMasterKey();
+              if (!oldMasterKey)
+                throw new Error("旧マスターキーが利用できません");
+              const dek = await unwrapDEK(
+                cred.passwordHintDekEncrypted,
+                cred.passwordHintDekIv,
+                oldMasterKey,
+              );
+              const dekWrapped = await wrapDEK(dek, newMasterKey);
+              reEncryptedCredentials.push({
+                id: cred.id,
+                passwordHint: cred.passwordHint,
+                passwordHintIv: cred.passwordHintIv,
+                passwordHintDekEncrypted: dekWrapped.encrypted,
+                passwordHintDekIv: dekWrapped.iv,
+              });
+            } else {
+              const plainHint = await decryptHint(
+                cred.passwordHint,
+                cred.passwordHintIv,
+              );
+              const dek = await generateDEK();
+              const { encrypted, iv } = await encrypt(plainHint, dek);
+              const dekWrapped = await wrapDEK(dek, newMasterKey);
+              reEncryptedCredentials.push({
+                id: cred.id,
+                passwordHint: encrypted,
+                passwordHintIv: iv,
+                passwordHintDekEncrypted: dekWrapped.encrypted,
+                passwordHintDekIv: dekWrapped.iv,
+              });
+            }
           }
         }
       }
@@ -322,7 +350,7 @@ function FamilyComponent() {
   }, [
     myJoinRequest,
     joinPasscode,
-    masterKey,
+    getMasterKey,
     requireUnlock,
     convex,
     decryptHint,
@@ -349,7 +377,7 @@ function FamilyComponent() {
       setIsLoading(true);
       try {
         // 1. セッションに旧マスターキーがあるか確認、なければロック解除を要求
-        if (!masterKey) {
+        if (!getMasterKey()) {
           const unlocked = await requireUnlock();
           if (!unlocked) {
             setIsLoading(false);
@@ -372,21 +400,46 @@ function FamilyComponent() {
           id: string;
           passwordHint: string;
           passwordHintIv: string;
+          passwordHintDekEncrypted?: string;
+          passwordHintDekIv?: string;
         }[] = [];
 
         for (const record of recordsToReEncrypt) {
           for (const cred of record.credentials) {
             if (cred.passwordHint && cred.passwordHintIv) {
-              const plainHint = await decryptHint(
-                cred.passwordHint,
-                cred.passwordHintIv,
-              );
-              const { encrypted, iv } = await encrypt(plainHint, newMasterKey);
-              reEncryptedCredentials.push({
-                id: cred.id,
-                passwordHint: encrypted,
-                passwordHintIv: iv,
-              });
+              if (cred.passwordHintDekEncrypted && cred.passwordHintDekIv) {
+                const oldMasterKey = getMasterKey();
+                if (!oldMasterKey)
+                  throw new Error("旧マスターキーが利用できません");
+                const dek = await unwrapDEK(
+                  cred.passwordHintDekEncrypted,
+                  cred.passwordHintDekIv,
+                  oldMasterKey,
+                );
+                const dekWrapped = await wrapDEK(dek, newMasterKey);
+                reEncryptedCredentials.push({
+                  id: cred.id,
+                  passwordHint: cred.passwordHint,
+                  passwordHintIv: cred.passwordHintIv,
+                  passwordHintDekEncrypted: dekWrapped.encrypted,
+                  passwordHintDekIv: dekWrapped.iv,
+                });
+              } else {
+                const plainHint = await decryptHint(
+                  cred.passwordHint,
+                  cred.passwordHintIv,
+                );
+                const dek = await generateDEK();
+                const { encrypted, iv } = await encrypt(plainHint, dek);
+                const dekWrapped = await wrapDEK(dek, newMasterKey);
+                reEncryptedCredentials.push({
+                  id: cred.id,
+                  passwordHint: encrypted,
+                  passwordHintIv: iv,
+                  passwordHintDekEncrypted: dekWrapped.encrypted,
+                  passwordHintDekIv: dekWrapped.iv,
+                });
+              }
             }
           }
         }

@@ -86,13 +86,17 @@ function NewRecordComponent() {
       const encryptedCredentials = await Promise.all(
         credentials.map(async (cred) => {
           if (cred.passwordHint) {
-            const { encrypted, iv } = await encryptHint(cred.passwordHint);
+            const { encrypted, iv, dekEncrypted, dekIv } = await encryptHint(
+              cred.passwordHint,
+            );
             return {
               id: crypto.randomUUID(),
               label: cred.label || undefined,
               loginId: cred.loginId || undefined,
               passwordHint: encrypted,
               passwordHintIv: iv,
+              passwordHintDekEncrypted: dekEncrypted,
+              passwordHintDekIv: dekIv,
             };
           }
           return {
@@ -101,6 +105,8 @@ function NewRecordComponent() {
             loginId: cred.loginId || undefined,
             passwordHint: cred.passwordHint || undefined,
             passwordHintIv: undefined,
+            passwordHintDekEncrypted: undefined,
+            passwordHintDekIv: undefined,
           };
         }),
       );

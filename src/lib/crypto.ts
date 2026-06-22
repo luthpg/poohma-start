@@ -75,7 +75,7 @@ export async function generateMasterKey(): Promise<CryptoKey> {
   return await crypto.subtle.generateKey(
     { name: ALGORITHM, length: KEY_LENGTH },
     true, // エクスポート可能 (ラップして保存するため)
-    ["encrypt", "decrypt"],
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
   );
 }
 
@@ -156,7 +156,7 @@ export async function unwrapMasterKey(
     { name: ALGORITHM, iv },
     { name: ALGORITHM, length: KEY_LENGTH },
     false,
-    ["encrypt", "decrypt"],
+    ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
   );
 }
 
@@ -185,4 +185,56 @@ export async function importKeyFromBase64(base64: string): Promise<CryptoKey> {
     "encrypt",
     "decrypt",
   ]);
+}
+
+/**
+ * 新しいData Encryption Key (DEK)を生成
+ */
+export async function generateDEK(): Promise<CryptoKey> {
+  return await crypto.subtle.generateKey(
+    { name: ALGORITHM, length: KEY_LENGTH },
+    true, // エクスポート可能 (ラップして保存するため)
+    ["encrypt", "decrypt"],
+  );
+}
+
+/**
+ * DEKをマスターキーでラップ（暗号化）
+ */
+export async function wrapDEK(
+  dek: CryptoKey,
+  masterKey: CryptoKey,
+): Promise<{ encrypted: string; iv: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrapped = await crypto.subtle.wrapKey("raw", dek, masterKey, {
+    name: ALGORITHM,
+    iv,
+  });
+
+  return {
+    encrypted: bufferToBase64(wrapped),
+    iv: bufferToBase64(iv.buffer as ArrayBuffer),
+  };
+}
+
+/**
+ * ラップされたDEKをマスターキーで復号
+ */
+export async function unwrapDEK(
+  encryptedBase64: string,
+  ivBase64: string,
+  masterKey: CryptoKey,
+): Promise<CryptoKey> {
+  const wrapped = base64ToBuffer(encryptedBase64);
+  const iv = base64ToBuffer(ivBase64);
+
+  return await crypto.subtle.unwrapKey(
+    "raw",
+    wrapped,
+    masterKey,
+    { name: ALGORITHM, iv },
+    { name: ALGORITHM, length: KEY_LENGTH },
+    true, // マスターキーローテーション（再暗号化）時に再ラップするためエクスポート可能にする
+    ["encrypt", "decrypt"],
+  );
 }

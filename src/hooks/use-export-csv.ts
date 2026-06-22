@@ -31,6 +31,9 @@ export function useExportCsv() {
           row[`LoginID${idx}`] = cred.loginId || "";
           row[`PasswordHint${idx}`] = cred.passwordHint || "";
           row[`PasswordHintIv${idx}`] = cred.passwordHintIv || "";
+          row[`PasswordHintDekEncrypted${idx}`] =
+            cred.passwordHintDekEncrypted || "";
+          row[`PasswordHintDekIv${idx}`] = cred.passwordHintDekIv || "";
         });
         return row;
       });
@@ -68,9 +71,16 @@ export function useExportCsv() {
           for (let i = 1; i <= 10; i++) {
             const hint = newRow[`PasswordHint${i}`];
             const iv = newRow[`PasswordHintIv${i}`];
+            const dekEncrypted = newRow[`PasswordHintDekEncrypted${i}`];
+            const dekIv = newRow[`PasswordHintDekIv${i}`];
             if (hint && iv) {
               try {
-                const plainHint = await decryptHint(hint, iv);
+                const plainHint = await decryptHint(
+                  hint,
+                  iv,
+                  dekEncrypted || undefined,
+                  dekIv || undefined,
+                );
                 // サニタイズを適用
                 newRow[`PasswordHint${i}`] = sanitizeCsvValue(plainHint);
               } catch (e) {
@@ -78,8 +88,10 @@ export function useExportCsv() {
                 newRow[`PasswordHint${i}`] = "";
               }
             }
-            // Remove IV from export
+            // Remove IV and DEK fields from export
             delete newRow[`PasswordHintIv${i}`];
+            delete newRow[`PasswordHintDekEncrypted${i}`];
+            delete newRow[`PasswordHintDekIv${i}`];
           }
           return newRow;
         }),
